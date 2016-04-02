@@ -95,6 +95,9 @@
 ;;   do with spaces
 ;; - `dix-reverse' should be able to reverse on a regexp match, so
 ;;   that we can do `dix-suffix-sort' by eg. <l>-elements.
+;; - yas-related code in another file that requires yas
+;; - C-c define-keys in a function (dix-old-keybindings); and make new
+;;   C-c-less keybindings
 
 ;;; Code:
 
@@ -2052,7 +2055,7 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
 (add-hook
  'align-load-hook
  (lambda ()
-  (dix-add-align-rule
+   (dix-add-align-rule
     'dix-rp-align "\\s-+\\(\\s-*\\)<r>" 'dix-rp-align-column)
    (dix-add-align-rule                  ;
     'dix-rb-align "\\(\\s-*\\)<r>" 'dix-rb-align-column)
