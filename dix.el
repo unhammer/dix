@@ -1,6 +1,6 @@
 ;;; dix.el --- minor mode for editing Apertium XML dictionary files
 
-;; Copyright (C) 2009-2014 Kevin Brubeck Unhammer
+;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
 ;; Version: 0.1.3
@@ -171,8 +171,6 @@ Entering dix-mode calls the hook dix-mode-hook.
      :help "Show only that part of the buffer which contains a given sdef, eg. work only on nouns for a while. Widen with `C-x n w' as per usual."]
     "---"
     ["Change Restriction of <e> (LR, RL, none)" dix-restriction-cycle]
-    ["Swap sense translation of this <e> with above <e>" dix-sense-swap
-     :help "Use with slr/srl entries to swap the translations of two <e>'s -- <r> if slr, <l> if srl."]
     ["Go to Next Useful Position in the Buffer" dix-next]
     ["Go to Previous Useful Position in the Buffer" dix-previous]
     ("Replace Regexp Within..."
@@ -186,10 +184,6 @@ Entering dix-mode calls the hook dix-mode-hook.
      ["Apply an LR Restriction" dix-LR-restriction-copy
       :help "Make a copy of the current <e> element"]
      ["Apply an RL Restriction" dix-RL-restriction-copy
-      :help "Make a copy of the current <e> element"]
-     ["Increase slr sense index" dix-slr-copy
-      :help "Make a copy of the current <e> element"]
-     ["Increase srl sense index" dix-srl-copy
       :help "Make a copy of the current <e> element"]
      ["Clear Contents" (dix-copy 'remove-lex)
       :keys "C-u C-c C"
@@ -397,10 +391,10 @@ lemma-suffixes that don't match the suffix of the lemma (e.g.
 pardef \"foo/er__verb\" when the lemma is \"fooable\") are
 filtered out."
   (cl-remove-if-not (lambda (par)
-			  (if (string-match "/\\([^_]+\\)_" par)
-			      (string-match (concat (match-string 1 par) "$") lemma)
-			    'no-slash-so-match-all))
-       (dix-pardef-suggest-at-point)))
+                      (if (string-match "/\\([^_]+\\)_" par)
+                          (string-match (concat (match-string 1 par) "$") lemma)
+                        'no-slash-so-match-all))
+                    (dix-pardef-suggest-at-point)))
 
 (defun dix-pardef-type-of-e ()
   (let ((par (dix-par-at-point)))
@@ -442,7 +436,7 @@ list `ATTRIBUTES' of the same format as
 (defvar dix-interesting
   '(;; dix:
     ("clip" "pos" "side" "part")
-    ("e" "lm" "slr" "srl" "r" "c")
+    ("e" "lm" "r" "c")
     ("par" "n")
     ("section" "id" "type")
     ("pardef" "n")
@@ -870,9 +864,9 @@ element at point. Optional argument DIR is a string, either
 	(goto-char (nxml-token-after)))
       (delete-horizontal-space)
       (cond  ((looking-at "<i") (indent-to dix-i-align-column))
-	     ((save-excursion (search-forward "</pardef>" nil 'noerror 1))
-	      (indent-to dix-pp-align-column))
-	     ((looking-at "<p") (indent-to dix-pb-align-column))))))
+             ((save-excursion (search-forward "</pardef>" nil 'noerror 1))
+              (indent-to dix-pp-align-column))
+             ((looking-at "<p") (indent-to dix-pb-align-column))))))
 
 (defun dix-LR-restriction-copy (&optional RL)
   "Make a copy of the Apertium element we're looking at, and add
@@ -938,32 +932,6 @@ into the beginning of the lm and <i>."
   (dix-next 1)
   (yank))
 
-(defun dix-increase-sense (&optional dir)
-  "Increase the number in the (deprecated) slr attribute.
-If given, optional argument `DIR' increases srl instead."
-  (interactive)
-  (let ((dir (or dir "slr")))
-    (save-excursion
-      (dix-up-to "e" "section")
-      (let* ((old	     ; find what, if any, restriction we have:
-	      (save-excursion
-		(if (re-search-forward (concat " " dir "=\"\\([0-9]+\\)\"\\| c=\" *\\(0\\)\"") (nxml-token-after) 'noerror)
-		    (or (match-string 1)
-			(match-string 2)))))
-	     (new (number-to-string (if old (1+ (string-to-number old)) 1))))
-	;; restrict:
-	(forward-word)
-	(if old (delete-region (match-beginning 0)
-			       (match-end 0)))
-	(insert (concat " " dir "=\"" new "\""))
-	(unless (looking-at ">") (just-one-space))
-	;; formatting, remove whitespace:
-	(goto-char (nxml-token-after))
-	(unless (looking-at "<") (goto-char (nxml-token-after)))
-	(delete-horizontal-space)
-	(cond ((looking-at "<i") (indent-to dix-i-align-column))
-	      ((looking-at "<p") (indent-to dix-pb-align-column)))))))
-
 (defun dix-l-at-point-reg ()
   "Return <l> of <e> at point as pair of buffer positions."
   (save-excursion
@@ -1014,62 +982,6 @@ If given, optional argument `DIR' increases srl instead."
   "Return first available CDATA of nearest <l> or <r> as string."
   (dix-first-cdata-of-elt (car (dix-l/r-at-point-reg))))
 
-(defun dix-sense-swap ()
-  "Swap this translation with the above.
-If this <e> has an slr, swap the <r>'s, if this <e> has an srl, swap the <l>'s.
-
-When using, make sure point is at an entry marked slr/srl, and
-the above <e> is part of the same sense group."
-  (interactive)
-  (dix-up-to "e" "pardef")
-  (let ((dir
-	 (save-excursion
-	   (when (re-search-forward (concat " \\(slr\\|srl\\)=\"[0-9][0-9]*\"") (nxml-token-after) 'noerror)
-	     (match-string-no-properties 1)))))
-    (if dir
-	(let* ((reg1 (save-excursion
-		       (dix-with-sexp (nxml-backward-element 1))
-		       (if (string= "slr" dir)
-			   (dix-r-at-point-reg)
-			 (dix-l-at-point-reg))))
-	       (elt1 (buffer-substring (car reg1) (cdr reg1))))
-	  (let* ((reg2 (if (string= "slr" dir)
-			   (dix-r-at-point-reg)
-			 (dix-l-at-point-reg)))
-		 (elt2 (buffer-substring (car reg2) (cdr reg2))))
-	    (goto-char (car reg2))
-	    (delete-region (car reg2) (cdr reg2))
-	    (insert elt1)
-	    (goto-char (car reg1))
-	    (delete-region (car reg1) (cdr reg1))
-	    (insert elt2))
-	  ;; So that we can move an element up several places with
-	  ;; consecutive tab presses:
-	  (goto-char (car reg1)))
-      (message "No slr/srl found in this <e>-element"))))
-
-(defun dix-slr-copy (&optional srl)
-  "Make a copy of the Apertium element we're looking at, and
-increase the slr sense attribute of the copy (optionally adding
-it if it's not present). Optional prefix argument `srl' makes it
-an srl sense."
-  (interactive "P")
-  (let ((dir (if srl "srl" "slr")))
-    (save-excursion
-      (dix-copy)
-      (dix-increase-sense dir)))
-  ;; move point to end of relevant word:
-  (dix-up-to "e" "section")
-  (nxml-forward-element)
-  (nxml-down-element 2) (unless srl (nxml-forward-element))
-  (nxml-down-element 1) (goto-char (nxml-token-after)))
-
-(defun dix-srl-copy ()
-  "Make a copy of the Apertium element we're looking at, and
-increase the srl sense attribute of the copy (optionally adding
-it if it's not present)."
-  (interactive)
-  (dix-slr-copy 'srl))
 
 (defvar dix-char-alist
   ;; TODO: Emacs<23 uses utf8, latin5 etc. while Emacs>=23 uses unicode
@@ -1360,8 +1272,8 @@ of <par>/<s>; and then onto the next <e> element). See also
   (let* ((step (if step step 1))
 	 (backward (< step 0)))
     (when (> (abs step) 0)
-	(dix-next-one backward)
-	(dix-next (if backward (1+ step) (1- step))))))
+      (dix-next-one backward)
+      (dix-next (if backward (1+ step) (1- step))))))
 
 (defun dix-previous (&optional step)
   "Moves backward `step' steps (default 1) in <e> elements. See
@@ -2163,7 +2075,6 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
 ;;; Keybindings --------------------------------------------------------------
 (define-key dix-mode-map (kbd "C-c L") 'dix-LR-restriction-copy)
 (define-key dix-mode-map (kbd "C-c R") 'dix-RL-restriction-copy)
-(define-prefix-command 'dix-sense-prefix)
 (define-key dix-mode-map (kbd "C-c s") 'dix-add-s)
 (define-key dix-mode-map (kbd "C-c C") 'dix-copy)
 (define-key dix-mode-map (kbd "C-c C-y") 'dix-copy-yank)
