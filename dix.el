@@ -3,7 +3,7 @@
 ;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.2.0
+;; Version: 0.2.1
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
 
@@ -36,25 +36,26 @@
 
 ;; If you want keybindings that use `C-c' followed by letters, you
 ;; should also add
-;; (add-hook 'dix-mode-hook #'dix-C-c-keybindings)
+;; (add-hook 'dix-mode-hook #'dix-C-c-letter-keybindings)
 ;; These are not turned on by default, since `C-c' followed by letters
 ;; is meant to be reserved for user preferences.
 
-;; Useful functions:
-;; `C-c L' creates an LR-restricted copy of the <e>-element at point,
-;; `C-c R' an RL-restricted one. `C-TAB' cycles through the
+;; Useful functions (some using C-c-letter-keybindings): `C-c <left>'
+;; creates an LR-restricted copy of the <e>-element at point, `C-c
+;; <right>' an RL-restricted one.  `C-TAB' cycles through the
 ;; restriction possibilities (LR, RL, none), while `M-n' and `M-p'
 ;; move to the next and previous "important bits" of <e>-elements
-;; (just try it!). `C-c S' sorts a pardef, while `C-c G' moves point
+;; (just try it!).  `C-c S' sorts a pardef, while `M-.'  moves point
 ;; to the pardef of the entry at point, leaving mark where you left
-;; from. Inside a pardef, `C-c A' shows all usages of that pardef
-;; within the dictionaries represented by the string `dix-dixfiles',
-;; while `C-c D' gives you a list of all pardefs which use these
-;; suffixes (where a suffix is the contents of an <l>-element).
+;; from (`M-.' will go back).  `C-c \' greps the pardef/word at point
+;; using the dictionary files represented by the string
+;; `dix-dixfiles', while `C-c D' gives you a list of all pardefs which
+;; use these suffixes (where a suffix is the contents of an
+;; <l>-element).
 
 ;; `M-x dix-suffix-sort' is a general function, useful outside of dix
 ;; XML files too, that just reverses each line, sorts them, and
-;; reverses them back. `C-c % %' is a convenience function for
+;; reverses them back.  `C-c % %' is a convenience function for
 ;; regexp-replacing text within certain XML elements, eg. all <e>
 ;; elements; `C-c % r' and `C-c % l' are specifically for <r> and <l>
 ;; elements, respectively.
@@ -63,14 +64,14 @@
 ;; (setq nxml-sexp-element-flag t 		; treat <e>...</e> as a sexp
 ;;       nxml-completion-hook '(rng-complete t) ; C-RET completes based on DTD
 ;;       rng-nxml-auto-validate-flag nil)       ; 8MB of XML takes a while
-;; You can always turn on validation again with C-c C-v. Validation
+;; You can always turn on validation again with C-c C-v.  Validation
 ;; is necessary for the C-RET completion, which is really handy in
 ;; transfer files.
 
 ;; I haven't bothered with defining a real indentation function, but
 ;; if you like having all <i> elements aligned at eg. column 25, the
 ;; align rules defined here let you do M-x align on a region to
-;; achieve that, and also aligns <p> and <r>. Set your favorite
+;; achieve that, and also aligns <p> and <r>.  Set your favorite
 ;; column numbers with M-x customize-group RET dix.
 
 ;; Plan / long term todo:
@@ -85,7 +86,7 @@
 ;; - `dix-LR-restriction-copy' should work on a region of <e>'s.
 ;; - `dix-expand-lemma-at-point' (either using `dix-goto-pardef' or
 ;;   `lt-expand')
-;; - Some sort of interactive view of the translation process. When
+;; - Some sort of interactive view of the translation process . When
 ;;   looking at a word in monodix, you should easily get confirmation on
 ;;   whether (and what) it is in the bidix or other monodix (possibly
 ;;   just using `apertium-transfer' and `lt-proc' on the expanded
@@ -102,8 +103,6 @@
 ;; - `dix-reverse' should be able to reverse on a regexp match, so
 ;;   that we can do `dix-suffix-sort' by eg. <l>-elements.
 ;; - yas-related code in another file that requires yas
-;; - C-c define-keys in a function (dix-old-keybindings); and make new
-;;   C-c-less keybindings
 
 ;;; Code:
 
@@ -233,7 +232,7 @@ Entering dix-mode calls the hook dix-mode-hook.
 
 (defvar dix-parse-bound 10000
   "Max amount of chars (not lines) to parse through in dix xml operations.
-Useful since dix tend to get huge. Relative bound. Decrease the
+Useful since dix tend to get huge.  Relative bound.  Decrease the
 number if operations ending in \"No parent element\" take too
 long.")
 
@@ -243,8 +242,9 @@ long.")
 (put 'dix-barrier-error 'error-message "Hit barrier when parsing")
 
 (defun dix-backward-up-element (&optional arg bound)
-  "Modified from `nxml-backward-up-element' to include optional argument BOUND.
-Optional argument ARG says how many elements to move."
+  "Modified from `nxml-backward-up-element' to include a search boundary.
+Optional argument ARG says how many elements to move; won't go
+past buffer position BOUND."
   (interactive "p")
   (or arg (setq arg 1))
   (if (< arg 0)
@@ -310,6 +310,9 @@ for some hints."
 	       (equal " lm=\"" (match-string 0)))))))
 
 (defun dix-enclosing-elt-helper (bound)
+  "Get the qname of the enclosing element.
+Will error if we don't find anything before the buffer position
+BOUND."
   (dix-backward-up-element 1 bound)
   (nxml-token-after)
   (xmltok-start-tag-qname))
@@ -342,6 +345,8 @@ Optional argument CLEAN removes trailing __n and such."
 	pardef))))
 
 (defun dix-lemma-at-point ()
+  "Find the nearest lm attribute of this e element.
+In a bidix, gives the contents of nearest of l/r."
   (if (string-match "-[^.]+\\.[^.]+$" (buffer-file-name))
       (dix-l/r-word-at-point) ;; bidix
     (save-excursion   ;; monodix
@@ -350,11 +355,13 @@ Optional argument CLEAN removes trailing __n and such."
       (match-string-no-properties 1))))
 
 (defun dix-i-at-point ()
+  "Find the nearest i element of this e."
   ;; TODO less roundabout
   (let ((rs (dix-split-root-suffix)))
     (concat (car rs) (cdr rs))))
 
 (defun dix-par-at-point ()
+  "Find the nearest par element of this e."
   (save-excursion
     (dix-up-to "e" "section")
     (re-search-forward "<par[^/>]*n=\"\\([^\"]*\\)" nil t)
@@ -366,7 +373,7 @@ Optional argument CLEAN removes trailing __n and such."
 
 First we look in the context around point (up to
 `dix-parse-bound' in both directions), then append the full list
-from <pardefs>. Tries to be fast, so no actual XML parsing,
+from <pardefs>.  Tries to be fast, so no actual XML parsing,
 meaning commented out pardefs may be suggested as well."
   (save-restriction
     (widen)
@@ -406,15 +413,17 @@ filtered out."
                     (dix-pardef-suggest-at-point)))
 
 (defun dix-pardef-type-of-e ()
+  "Give the part following `__' in a pardef name, or nil."
   (let ((par (dix-par-at-point)))
     (when (string-match "[^_]*__\\([^\"]*\\)" par)
       (match-string-no-properties 1 par))))
 
 (defun dix-split-root-suffix ()
-  "Return a pair of the contents of <i> and the letters following
-the slash of the pardef. Does not give the correct root of it's
-not all contained within an <i> (eg. lemma pardefs will give
-wrong roots)."
+  "Give a pair of the <i>-contents and pardef <r>-contents.
+The pardef <r>-contents are guessed by the letters following the
+slash of the pardef.  Does not give the correct root of it's not
+all contained within an <i> (eg. lemma pardefs will give wrong
+roots)."
   (save-excursion
     (dix-up-to "e" "section")
     (let ((e-end (nxml-scan-element-forward (point))))
@@ -426,9 +435,9 @@ wrong roots)."
 		(match-string-no-properties 1)))))))
 
 (defun dix-get-attrib (attributes name)
-  "Find attribute with attribute name `NAME' (a string) in the
-list `ATTRIBUTES' of the same format as
-`xmltok-attributes'. Return nil if no such attribute is found."
+  "Look in list ATTRIBUTES for one with name NAME (a string).
+Assumes ATTRIBUTES of the same format as `xmltok-attributes'.
+Return nil if no such attribute is found."
   (if attributes
       (if (equal name (buffer-substring-no-properties
 		       (xmltok-attribute-name-start (car attributes))
@@ -437,8 +446,8 @@ list `ATTRIBUTES' of the same format as
 	(dix-get-attrib (cdr attributes) name))))
 
 (defun dix-attrib-start (attributes name)
-  "Return start position of attribute by `NAME' only if it exists.
-`ATTRIBUTES' is of the format of `xmltok-attributes'."
+  "Look in ATTRIBUTES for start position of attribute NAME, or nil if no such.
+Assumes ATTRIBUTES is of the format of `xmltok-attributes'."
   (let ((attrib (dix-get-attrib attributes name)))
     (when attrib (xmltok-attribute-value-start attrib))))
 
@@ -494,10 +503,9 @@ They'll not be skipped if they have interesting attributes as defined by
 ;;; TODO: skip <[lr]><g><b/> and go to nearest CDATA in e.g. <l><g><b/>for</g></l>
 
 (defun dix-nearest (pivot backward &rest args)
-  "(dix-nearest 3 nil 1 2 3 4 5 6 7) => 4
-   (dix-nearest 3 nil 1 2 3) => nil
-   (dix-nearest 3 t 1 2 3) => 2
-   (dix-nearest 3 t 1 2 4) => 2"
+  "Find the element numerically nearest PIVOT.
+If BACKWARD, we we want only elements of ARGS that are lower than
+PIVOT, otherwise only higher."
   (let ((cmp (if backward '< '>))
 	(nearest (if backward 'max 'min)))
     (let ((OK (remove nil
@@ -507,9 +515,9 @@ They'll not be skipped if they have interesting attributes as defined by
       (when OK (apply nearest OK)))))
 
 (defun dix-nearest-interesting (attributes pivot backward interest)
-  "Find the position of the nearest member of list `interest'
-which is also a member of `attributes' (in the format of
-`xmltok-attributes') but not crossing `pivot'."
+  "Find the position of the nearest member of list INTEREST which
+is also a member of ATTRIBUTES (in the format of
+`xmltok-attributes') but not crossing PIVOT."
   (apply 'dix-nearest pivot backward
 	 (mapcar (lambda (attname)
 		   (dix-attrib-start attributes attname))
@@ -571,7 +579,7 @@ the pardef names containing these suffixes.
 
 Argument `partype' is eg. adj, vblex, vblex_adj, ..., and is the
 string following \"__\", thus assumes you keep to the Apertium
-standard. Also assumes there is no \"_\" before \"__\" in pardef
+standard.  Also assumes there is no \"_\" before \"__\" in pardef
 names."
   (let ((suffmap (make-hash-table :test 'equal)))
     (save-excursion
@@ -593,8 +601,8 @@ keys are symbols formed from the string `partype' (see
 (make-variable-buffer-local 'dix-suffix-maps)
 
 (defun dix-get-pardefs (sufflist suffmap)
-  "Get the list of pardefs in `suffmap' which have the list of
-suffixes `sufflist'. See `dix-compile-suffix-map' for more
+  "Get the list of pardefs in SUFFMAP which have the list of
+suffixes SUFFLIST.  See `dix-compile-suffix-map' for more
 information."
   (gethash (sort sufflist 'string-lessp) suffmap))
 
@@ -615,6 +623,8 @@ and `dix-get-pardefs'."
       (sort sufflist 'string-lessp))))
 
 (defun assoc-delete-all (key alist)
+  "Delete all instances of KEY in ALIST.
+Returns a copy (does not modify the original list)."
   (if alist
       (if (equal (caar alist) key)
 	  (assoc-delete-all key (cdr alist))
@@ -628,9 +638,9 @@ and `dix-get-pardefs'."
 ;;; Schemas / validation
 ;;;
 (defcustom dix-schema-locating-files nil
-  "List of schema locating files. Used by `dix-schema' to
-populate `rng-schema-locating-files'. If nil, a default schema
-will be added."
+  "List of schema locating files.
+Used by `dix-schema' to populate `rng-schema-locating-files'.
+If nil, a default schema will be added."
   :type '(repeat file)
   :group 'dix)
 
@@ -668,6 +678,7 @@ edit the paths, and add the path to the list
 ;;; should do (remhash 'nxml-mode yas--tables) after (yas-reload-all)
 
 (defun dix-maybe-yas-activate ()
+  "Turn on `yas-minor-mode' in `dix-mode' if possible."
   (when (fboundp 'yas-activate-extra-mode)
     (yas-activate-extra-mode 'dix-mode)))
 
@@ -705,10 +716,10 @@ edit the paths, and add the path to the list
 (defun dix-yas-skip-backwards-to-key (start-point)
   "Skip backwards to the first possible yasnippet key.
 
-This is meant to be used in `yas-key-syntaxes', since the
-defaults don't let you expand e.g. \"<s>\" without having
-whitespace before it. To use this function, put the following in
-your init file:
+This is meant to be used in `yas-key-syntaxes' (which see for
+information on START-POINT), since the defaults don't let you
+expand e.g. \"<s>\" without having whitespace before it. To use
+this function, put the following in your init file:
 
     (eval-after-load 'yasnippet
       '(add-to-list 'yas-key-syntaxes 'dix-yas-skip-backwards-to-key))
@@ -788,10 +799,11 @@ how yasnippet expansion works in other modes."
 ;;;
 
 (defun dix-find-duplicate-pardefs (&optional recompile)
-  "Find all pardefs with this list of suffixes (contents of <l>
-elements); if there are several of them they might be
-duplicates. Optional prefix argument `recompile' forces a
-re-check of all pardefs.
+  "Find all pardefs with this list of suffixes.
+
+'Suffixes' are contents of <l> elements.  If there are several of
+them they might be duplicates.  Optional prefix argument
+RECOMPILE forces a re-check of all pardefs.
 
 Uses internal function `dix-compile-suffix-map' which assumes
 that pardefs are named according to the regular Apertium scheme,
@@ -828,8 +840,9 @@ Returns the list of pardef names."
 (put 'dix-vl-langs 'safe-local-variable 'listp)
 
 (defun dix-v-cycle ()
-  "Cycle through possible values of the `vr' or `vl' attributes of the <e>
-element at point.
+  "Cycle through possible values of the `vr' or `vl' attributes.
+
+Only affects the <e> element at point.
 
 Doesn't yet deal with elements that specify both vr and vl.
 
@@ -839,8 +852,7 @@ For this to be useful, put something like this at the end of your file:
 Local Variables:
 dix-vr-langs: (\"nno\" \"nob\")
 End:
--->
-"
+-->"
   (interactive)
   (save-excursion
     (dix-up-to "e" "pardef")
@@ -877,9 +889,12 @@ End:
 	     ((looking-at "<p") (indent-to dix-pb-align-column))))))
 
 (defun dix-restriction-cycle (&optional dir)
-  "Cycle through possible values of the `r' attribute of the <e>
-element at point. Optional argument DIR is a string, either
-\"\", \"LR\" or \"RL\"."
+  "Cycle through possible values of the `r' attribute.
+
+Only affects the <e> element at point.
+
+Optional argument DIR is a string, either \"\", \"LR\" or
+\"RL\"."
   (interactive)
   (save-excursion
     (dix-up-to "e" "pardef")
@@ -913,7 +928,7 @@ element at point. Optional argument DIR is a string, either
 
 (defun dix-LR-restriction-copy (&optional RL)
   "Make a copy of the Apertium element we're looking at, and add
-an LR restriction to the copy. A prefix argument makes it an RL
+an LR restriction to the copy.  A prefix argument makes it an RL
 restriction."
   (interactive "P")
   (save-excursion
@@ -932,9 +947,9 @@ add an RL restriction to the copy."
   (dix-LR-restriction-copy 'RL))
 
 (defun dix-copy (&optional remove-lex)
-  "Make a copy of the Apertium element we're looking at. Optional
-prefix argument `remove-lex' removes the contents of the lm
-attribute and <i> or <p> elements."
+  "Make a copy of the Apertium element we're looking at.
+Optional prefix argument REMOVE-LEX removes the contents of the
+lm attribute and <i> or <p> elements."
   (interactive "P")
   ;; todo: find the first one of these: list-item, e, def-var, sdef, attr-item, cat-item, clip, pattern-item,
   (dix-up-to "e" "pardef")
@@ -1069,7 +1084,7 @@ into the beginning of the lm and <i>."
   "Converts Sámi characters into ascii equivalent.")
 
 (defun dix-asciify (str)
-  "Used before sorting to turn á into a, etc."
+  "Used before sorting to turn á into a, etc in STR."
   (let ((cpos 0))
     (while (< cpos (length str))
       (let ((tr (aref dix-asciify-table (elt str cpos))))
@@ -1085,15 +1100,17 @@ Useful after e.g. `nxml-down-element' if there's whitespace."
     (nxml-token-after)))
 
 (defun dix-sort-e-by-l (reverse beg end &optional by-r)
-  "Sort region alphabetically by contents of <l> element (or by
-<r> element if optional argument `by-r' is true); argument means
-descending order. Assumes <e> elements never occupy more than one
-line.
+  "Sort region alphabetically by contents of <l> element.
+
+Interactive argument means descending order.  Assumes <e>
+elements never occupy more than one line.
 
 Called from a program, there are three arguments:
-`reverse' (non-nil means reverse order), `beg' and `end' (region
-to sort).  The variable `sort-fold-case' determines whether
+REVERSE (non-nil means reverse order), BEG and END (region to
+sort).  The variable `sort-fold-case' determines whether
 alphabetic case affects the sort order.
+
+Sorts by <r> element if optional argument BY-R is true.
 
 Note: will not work if you have several <e>'s per line!"
   (interactive "P\nr")
@@ -1133,7 +1150,7 @@ Note: will not work if you have several <e>'s per line!"
 		 (concat l slr r))))))))))
 
 (defun dix-get-slr (attributes)
-  "`attributes' is of the format of `xmltok-attributes', returns
+  "ATTRIBUTES is of the format of `xmltok-attributes', returns
 the string value of the slr attribute if it's set, otherwise
 \"0\". Should probably be padded since we use it for sorting, but
 so far there are never slr's over 10 anyway..."
@@ -1148,7 +1165,9 @@ so far there are never slr's over 10 anyway..."
   (dix-sort-e-by-l reverse beg end 'by-r))
 
 (defun dix-sort-pardef (reverse)
-  "Sort a pardef using `dix-sort-e-by-r'."
+  "Sort a pardef using `dix-sort-e-by-r'.
+
+If REVERSE, sorts in opposite order."
   (interactive "P")
   (save-excursion
     (let (beg end)
@@ -1162,9 +1181,10 @@ so far there are never slr's over 10 anyway..."
 	  (dix-sort-e-by-r reverse beg xmltok-start)))))
 
 (defun dix-reverse-lines (beg end)
-  "Reverse each line in the region. Used by `dix-suffix-sort'. If
-called non-interactively, reverse each full line from `beg' to
-`end' (inclusive, never reverses part of a line)."
+  "Reverse each line in the region.
+Used by `dix-suffix-sort'.  If called non-interactively, reverse
+each full line from BEG to END (inclusive, never reverses part of
+a line)."
   (interactive "r")
   (save-excursion
     (if (and (>= beg (line-beginning-position))
@@ -1180,16 +1200,17 @@ called non-interactively, reverse each full line from `beg' to
 	  (forward-line))))))
 
 (defun dix-reverse-region (beg end)
-  "Reverse the text between positions `beg' and `end' in the
-buffer. Used by `dix-reverse-lines'."
+  "Reverse the text between positions BEG and END in the buffer.
+Used by `dix-reverse-lines'."
   (interactive "r")
   (let ((line (buffer-substring beg end)))
     (delete-region beg end)
     (insert (apply 'string (reverse (string-to-list line))))))
 
 (defun dix-suffix-sort (beg end)
-  "Sort the region by the reverse of each line, useful for
-finding compound words which could have the same paradigm."
+  "Sort the region by the reverse of each line.
+Useful for finding compound words which could have the same paradigm.
+BEG and END bound the region to sort when called programmatically."
   (interactive "r")
   (dix-reverse-lines beg end)
   (sort-lines nil beg end)
@@ -1197,10 +1218,10 @@ finding compound words which could have the same paradigm."
 
 (defun dix-replace-regexp-within-elt (regexp to-string eltname &optional delimited start end)
   "Does exactly what `query-replace-regexp' does, except it
-restricts `regexp' and `to-string' to text within `eltname'
-elements. Note: this function does not ensure that `to-string' is
-free from instances of the end `eltname', so it's easy to break
-if you so wish."
+restricts REGEXP and TO-STRING to text within ELTNAME elements.
+Note: this function does not ensure that TO-STRING is free from
+instances of the end ELTNAME, so it's easy to break if you so
+wish."
   (interactive
    (let ((common (query-replace-read-args
 		  (if (and transient-mark-mode mark-active)
@@ -1243,19 +1264,21 @@ if you so wish."
   "Set by `dix-word-search-forward'.")
 
 (defun dix-word-search-forward (&optional whole-word)
-  "Incremental word-search for dix files. In monodix, searches
-only within lm attributes, in bidix, searches only between > and
-< symbols. If optional prefix argument `whole-word' is given, you
-have to type the whole word in to get a (correct) hit, otherwise
-you can search for partial words.
+  "Incremental word-search for dix files.
+
+In monodix, searches only within lm attributes, in bidix,
+searches only between > and < symbols.  If optional prefix
+argument WHOLE-WORD is given, you have to type the whole word
+in to get a (correct) hit, otherwise you can search for partial
+words.
 
 TODO:
-- Check if this can be rewritten as a isearch-filter-predicate
+- Check if this can be rewritten as a `isearch-filter-predicate'
 - Figure out why two backspaces are needed (seems to 'temporarily
   fail' when searching)
 - Unless we're doing a substring search, we should probably not
   do an incremental search (that is, not search until user
-  presses enter), but word-search-forward isn't good
+  presses enter), but `word-search-forward' isn't good
   enough (doesn't highlight, no way to C-s to the next hit...)"
   (interactive "P")
   (setq dix-search-substring (not whole-word))
@@ -1281,8 +1304,10 @@ TODO:
 
 
 (defun dix-find-rhs-mismatch ()
-  "Find possible mismatches in <r> elements (ie. a pardef where
-two <e>'s have different suffixes in their <r>'s).
+  "Find possible mismatches in <r> elements.
+
+This is e.g. a pardef where two <e>'s have different suffixes in
+their <r>'s.
 
 Only stops at the first mismatch within one pardef."
   (interactive)
@@ -1308,10 +1333,12 @@ Only stops at the first mismatch within one pardef."
       (message "No mismatches discovered."))))
 
 (defun dix-next (&optional step)
-  "Moves forward `step' steps (default 1) in <e> elements between
-the important places (lm attribute, <i>/<r>/<l> data, n attribute
-of <par>/<s>; and then onto the next <e> element). See also
-`dix-previous'."
+  "Move to the next 'interesting' element/attribute.
+
+Moves forward STEP steps (default 1) between the important
+places (lm attribute, <i>/<r>/<l> data, n attribute of <par>/<s>;
+and then onto the next <e> element).  See also `dix-previous'.
+Interestingness is defined by `dix-interesting'."
   (interactive "p")
   (let* ((step (if step step 1))
 	 (backward (< step 0)))
@@ -1320,13 +1347,14 @@ of <par>/<s>; and then onto the next <e> element). See also
       (dix-next (if backward (1+ step) (1- step))))))
 
 (defun dix-previous (&optional step)
-  "Moves backward `step' steps (default 1) in <e> elements. See
-also `dix-next'."
+  "Move backward to the next 'interesting' element.
+
+Moves STEP steps (default 1).  See also `dix-next'."
   (interactive "p")
   (dix-next (- (if step step 1))))
 
 (defun dix-nearest-pdname (origin)
-  "Return the pardef-name nearest `origin' within an <e> element."
+  "Return the pardef-name nearest ORIGIN within an <e> element."
   (save-excursion
     (dix-up-to "e")
     (let* ((e-end (nxml-scan-element-forward (nxml-token-before)))
@@ -1338,8 +1366,11 @@ also `dix-next'."
       pdname)))
 
 (defun dix-goto-pardef (&optional pdname)
-  "Call from an entry to go to its pardef. Mark is pushed so you
-can go back with C-u \\[set-mark-command]."
+  "Call from an entry to go to its pardef.
+
+Optional argument PDNAME specified an exact pardef name to go to;
+otherwise the name nearest point is used.  Mark is pushed so you
+can go back with \\[pop-to-mark-command]."
   (interactive)
   (let* ((pdname (or pdname (dix-nearest-pdname (point))))
 	 (pos (save-excursion
@@ -1357,11 +1388,13 @@ can go back with C-u \\[set-mark-command]."
       (message "Couldn't find pardef %s" pdname))))
 
 (defun dix-view-pardef ()
-  "Show pardef in other window. The pardef is just inserted into
-a new buffer where you can e.g. edit at will and then paste back.
-The nice thing is that for each call of this function, the pardef
-is added to the *dix-view-pardef* buffer, so you get a temp
-buffer where you can eg. collapse pardefs."
+  "Show pardef in other window.
+
+The pardef is just inserted into a new buffer where you can
+e.g. edit at will and then paste back.  The nice thing is that
+for each call of this function, the pardef is added to the
+*dix-view-pardef* buffer, so you get a temp buffer where you can
+eg. collapse pardefs."
   ;; TODO: would it be better to `clone-indirect-buffer-other-window'
   ;; with a buffer restriction, so we could edit the pardef without
   ;; having to copy-paste it back?
@@ -1384,9 +1417,10 @@ buffer where you can eg. collapse pardefs."
 
 
 (defun dix-goto-rule-number (num)
-  "Go to <rule> number `num' in the file. When called
-interactively, asks for a rule number (or uses the prefix
-argument)."
+  "Go to <rule> number NUM in the file.
+
+When called interactively, asks for a rule number (or uses the
+prefix argument)."
   (interactive "NRule number: ")
   (let ((found nil)
 	(cur num))
@@ -1400,18 +1434,19 @@ argument)."
       (message "Couldn't find rule number %d" num))))
 
 (defun dix-rule-forward ()
-  "Move point to the next transfer <rule>. Return point if we can
-find a non-commented <rule> before the end of the buffer,
-otherwise nil"
-  (setq found-a-rule (re-search-forward "<rule[ >]" nil t)
-	keep-looking (and (nxml-token-before) (eq xmltok-type 'comment)))
-  (while (and found-a-rule
-	      keep-looking)
-    (setq found-a-rule (re-search-forward "<rule[ >]" nil t)
-	  keep-looking (and (nxml-token-before) (eq xmltok-type 'comment))))
-  (and found-a-rule
-       (not keep-looking)
-       (point)))
+  "Move point to the next transfer <rule>.
+
+Return point if we can find a non-commented <rule> before the end
+of the buffer, otherwise nil"
+  (let ((found-a-rule (re-search-forward "<rule[ >]" nil t))
+        (keep-looking (and (nxml-token-before) (eq xmltok-type 'comment))))
+    (while (and found-a-rule
+                keep-looking)
+      (setq found-a-rule (re-search-forward "<rule[ >]" nil t)
+            keep-looking (and (nxml-token-before) (eq xmltok-type 'comment))))
+    (and found-a-rule
+         (not keep-looking)
+         (point))))
 
 
 (defvar dix-modes
@@ -1472,7 +1507,7 @@ TODO: word-at-point function which ignores xml stuff."
 	       (split-string analyses "/" 'omitnulls) " ")))
 
 (defun dix-rstrip (whole end)
-  "Remove substring `end' from string `whole' and return the result."
+  "Remove substring END from string WHOLE and return the result."
   (if (string= end
 	       (substring whole
 			  (- (length whole) (length end))))
@@ -1480,7 +1515,7 @@ TODO: word-at-point function which ignores xml stuff."
     (error (concat "The string \"" end "\" does not end \"" whole "\""))))
 
 (defun dix-consume-i (substr)
-  "Try to remove `substr' from this <i>-element."
+  "Try to remove SUBSTR from this <i>-element."
   (when (> (length substr) 0)
     (let ((end (+ (point) (length substr))))
       (if (string= (xmltok-start-tag-qname) "i")
@@ -1490,7 +1525,7 @@ TODO: word-at-point function which ignores xml stuff."
 	(error "bailing out, dix-consume-i can't handle elements other than <i>")))))
 
 (defun dix-guess-pardef (&optional partype)
-  "How to use: write a long word, e.g. a compound noun like
+  "How to use: Write a long word, e.g. a compound noun like
 \"øygruppe\", in the dix file below all the nouns, put point
 between \"øy\" and \"gruppe\", and if \"gruppe\" is defined
 somewhere above, this function will turn the word into:
@@ -1685,13 +1720,13 @@ too much work for this."
 	 " ")))
 
 (defun dix-insert-space ()
-  "Inserts a `dix-space' at point."
+  "Insert a `dix-space' at point."
   (interactive)
   (insert (dix-space)))
 
 (defcustom dix-hungry-backspace nil
-  "Delete whole XML elements (<b/>, comments) with a single press
-of the backspace key. Set to nil if you don't want this behaviour."
+  "Delete whole XML elements (<b/>, comments) with a single press of backspace.
+Set to nil if you don't want this behaviour."
   :type 'boolean
   :group 'dix)
 
@@ -1714,8 +1749,7 @@ to the regular `delete-backward-char'."
     (call-interactively 'delete-backward-char)))
 
 (defun dix-< (literal)			; not in use yet
-  "Inserts < in space or unclosed tags, otherwise moves to the
-beginning of the element."
+  "Insert < in space or unclosed tags, otherwise move to the beginning of the element."
   (interactive "*P")
   (if literal
       (self-insert-command (prefix-numeric-value literal))
@@ -1725,8 +1759,7 @@ beginning of the element."
 	  (t (progn (nxml-up-element)
 		    (dix-with-sexp (backward-sexp)))))))
 (defun dix-> (literal)
-  "Inserts > in space or unclosed tags, otherwise moves to the
-end of the element."
+  "Insert > in space or unclosed tags, otherwise move to the end of the element."
   (interactive "*P")
   (if literal
       (self-insert-command (prefix-numeric-value literal))
@@ -1867,7 +1900,7 @@ lahka:slags
       (insert (apply #'concat outlist)))))
 
 (defun dix-trim-string (s)
-  "Trim leading and trailing spaces, tabs and newlines off `s'."
+  "Trim leading and trailing spaces, tabs and newlines off S."
   (cond ((not (stringp s)) nil)
 	((string-match "^[ \t\n]*\\(\\(?:.\\|\n\\)*[^ \t\n]+\\)[ \t\n]*" s)
 	 (match-string 1 s))
@@ -1877,7 +1910,9 @@ lahka:slags
   "Cons of the tmpfile used to store the expansion, and the
 timestamp of the file last time we expanded it, as given
 by (sixth (file-attributes dix-monodix-left)).")
-(defvar dix-monodix-left "/l/n/apertium-nn-nb.nn.dix")
+
+(defvar dix-monodix-left "/l/n/nno/apertium-nno.nno.dix"
+  "Set to the default monodix you want when running `dix-expand'.")
 
 (defun dix-expansion-sentinel (proc change-str)
   (when (string= "finished\n" change-str)
@@ -1911,7 +1946,9 @@ new tmpfile and `monodix' timestamp."
 			  (setq dix-expansion-left (cons file time)))))
 
 (defun dix-expand (lemma pos)
+  ;; TODO work-in-progress
   (shell-command (concat "grep ':\\([>]:\\)*" lemma "<" pos ">' " (car dix-expansion-left))))
+
 (defun dix-expand-possibilities (tags)
   "There should be no leading < in `tags', but you can have
 several with >< between them."
@@ -2130,7 +2167,7 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
 ;;;
 ;;; Keybindings
 ;;;
-(defun dix-C-c-keybindings ()
+(defun dix-C-c-letter-keybindings ()
   "Define keybindings with `C-c' followed by ordinary letters.
 Not set by default, since such bindings should be reserved for
 users."
