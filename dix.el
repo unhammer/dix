@@ -2066,7 +2066,10 @@ DIR (defaults to `default-directory')."
                        (remove this uniq))))
       (mapcar #'file-relative-name w/o-this))))
 
-;;; Alignment ----------------------------------------------------------------
+;;;============================================================================
+;;;
+;;; Alignment
+;;;
 (defcustom dix-rp-align-column 28 "Column to align pardef <r> elements to with `align'."
   :type 'integer
   :group 'dix)
@@ -2110,7 +2113,11 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
    (dix-add-align-rule
     'dix-pp-align "^\\s-+\\S-*\\(\\s-*\\)<p>" 'dix-pp-align-column)))
 
-;;; Evil integration ---------------------------------------------------------
+;;;============================================================================
+;;;
+;;; Evil integration
+;;;
+
 (eval-after-load 'evil
   '(progn
      (evil-declare-motion #'dix-next)
@@ -2119,7 +2126,10 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
      (evil-declare-motion #'dix-backward-up-element)
      (evil-declare-motion #'dix-goto-pardef)))
 
-;;; Keybindings --------------------------------------------------------------
+;;;============================================================================
+;;;
+;;; Keybindings
+;;;
 (defun dix-C-c-keybindings ()
   "Define keybindings with `C-c' followed by ordinary letters.
 Not set by default, since such bindings should be reserved for
@@ -2161,7 +2171,10 @@ users."
 (define-key dix-mode-map (kbd "C->") #'dix->)
 (define-key dix-mode-map (kbd "C-x n s") #'dix-narrow-to-sdef)
 
-;;; Run hooks -----------------------------------------------------------------
+;;;============================================================================
+;;;
+;;; Run hooks
+;;;
 (run-hooks 'dix-load-hook)
 
 (provide 'dix)
