@@ -106,7 +106,7 @@
 
 ;;; Code:
 
-(defconst dix-version "0.2.0")
+(defconst dix-version "0.2.1")
 
 (require 'nxml-mode)
 (require 'cl-lib)
