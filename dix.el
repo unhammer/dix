@@ -34,10 +34,11 @@
 ;;                                      buffer-file-name)
 ;; 			  (dix-mode 1))))
 
-;; If you want keybindings that use the `C-c' prefix, you should also add
+;; If you want keybindings that use `C-c' followed by letters, you
+;; should also add
 ;; (add-hook 'dix-mode-hook #'dix-C-c-keybindings)
-;; These are not turned on by default, since `C-c' is meant to be
-;; reserved for user preferences.
+;; These are not turned on by default, since `C-c' followed by letters
+;; is meant to be reserved for user preferences.
 
 ;; Useful functions:
 ;; `C-c L' creates an LR-restricted copy of the <e>-element at point,
@@ -967,6 +968,7 @@ attribute and <i> or <p> elements."
 (defun dix-copy-yank ()
   "Make a copy of the Apertium element we're looking at, and yank
 into the beginning of the lm and <i>."
+  ;; TODO: remove old data
   (interactive)
   (dix-copy)
   (dix-next 1)
@@ -1430,11 +1432,11 @@ otherwise nil"
 (defun dix-analyse (&optional no-disambiguate)
   "Very bare-bones at the moment.
 
-Todo: read modes.xml instead of those using those dix-path*
+TODO: read modes.xml instead of those using those dix-path*
 variables, and allow both directions (although should have some
 option to override the modes.xml reading).
 
-Todo: word-at-point function which ignores xml stuff."
+TODO: word-at-point function which ignores xml stuff."
   (interactive "P")
   (save-selected-window
     (let ((modes dix-modes)
@@ -2119,39 +2121,45 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
 
 ;;; Keybindings --------------------------------------------------------------
 (defun dix-C-c-keybindings ()
-  (define-key dix-mode-map (kbd "C-c L") 'dix-LR-restriction-copy)
-  (define-key dix-mode-map (kbd "C-c R") 'dix-RL-restriction-copy)
-  (define-key dix-mode-map (kbd "C-c s") 'dix-add-s)
-  (define-key dix-mode-map (kbd "C-c C") 'dix-copy)
-  (define-key dix-mode-map (kbd "C-c C-y") 'dix-copy-yank)
-  (define-key dix-mode-map (kbd "C-c S") 'dix-sort-pardef)
-  (define-key dix-mode-map (kbd "C-c G") 'dix-goto-pardef)
-  (define-key dix-mode-map (kbd "C-c n") 'dix-goto-rule-number)
-  (define-key dix-mode-map (kbd "C-c g") 'dix-guess-pardef)
-  (define-key dix-mode-map (kbd "C-c x") 'dix-xmlise-using-above-elt)
-  (define-key dix-mode-map (kbd "C-c V") 'dix-view-pardef)
-  (define-key dix-mode-map (kbd "C-c W") 'dix-word-search-forward)
-  (define-key dix-mode-map (kbd "C-c A") 'dix-grep-all)
-  (define-key dix-mode-map (kbd "C-c D") 'dix-find-duplicate-pardefs)
-  (define-key dix-mode-map (kbd "C-c p") 'dix-add-par)
-  (define-key dix-mode-map (kbd "C-c C-c") 'dix-analyse)
-  (define-prefix-command 'dix-replace-prefix)
-  (define-key dix-mode-map (kbd "C-c %") 'dix-replace-prefix)
-  (define-key dix-mode-map (kbd "C-c % RET") 'dix-replace-regexp-within-elt)
-  (define-key dix-mode-map (kbd "C-c % %") 'dix-replace-regexp-within-elt)
-  (define-key dix-mode-map (kbd "C-c % l") 'dix-replace-regexp-within-l)
-  (define-key dix-mode-map (kbd "C-c % r") 'dix-replace-regexp-within-r))
+  "Define keybindings with `C-c' followed by ordinary letters.
+Not set by default, since such bindings should be reserved for
+users."
+  (define-key dix-mode-map (kbd "C-c L") #'dix-LR-restriction-copy)
+  (define-key dix-mode-map (kbd "C-c R") #'dix-RL-restriction-copy)
+  (define-key dix-mode-map (kbd "C-c s") #'dix-add-s)
+  (define-key dix-mode-map (kbd "C-c C") #'dix-copy)
+  (define-key dix-mode-map (kbd "C-c S") #'dix-sort-pardef)
+  (define-key dix-mode-map (kbd "C-c G") #'dix-goto-pardef)
+  (define-key dix-mode-map (kbd "C-c n") #'dix-goto-rule-number)
+  (define-key dix-mode-map (kbd "C-c g") #'dix-guess-pardef)
+  (define-key dix-mode-map (kbd "C-c x") #'dix-xmlise-using-above-elt)
+  (define-key dix-mode-map (kbd "C-c V") #'dix-view-pardef)
+  (define-key dix-mode-map (kbd "C-c W") #'dix-word-search-forward)
+  (define-key dix-mode-map (kbd "C-c A") #'dix-grep-all)
+  (define-key dix-mode-map (kbd "C-c D") #'dix-find-duplicate-pardefs)
+  (define-key dix-mode-map (kbd "C-c p") #'dix-add-par))
 
-(define-key dix-mode-map (kbd "<C-tab>") 'dix-restriction-cycle)
-(define-key dix-mode-map (kbd "<C-S-tab>") 'dix-v-cycle)
-(define-key dix-mode-map (kbd "<S-iso-lefttab>") 'dix-v-cycle)
-(define-key dix-mode-map (kbd "M-n") 'dix-next)
-(define-key dix-mode-map (kbd "M-p") 'dix-previous)
-(define-key dix-mode-map (kbd "<SPC>") 'dix-insert-space)
-(define-key dix-mode-map (kbd "<backspace>") 'dix-backspace)
-(define-key dix-mode-map (kbd "C-<") 'dix-<)
-(define-key dix-mode-map (kbd "C->") 'dix->)
-(define-key dix-mode-map (kbd "C-x n s") 'dix-narrow-to-sdef)
+(define-prefix-command #'dix-replace-prefix)
+(define-key dix-mode-map (kbd "C-c %") #'dix-replace-prefix)
+(define-key dix-mode-map (kbd "C-c % RET") #'dix-replace-regexp-within-elt)
+(define-key dix-mode-map (kbd "C-c % %") #'dix-replace-regexp-within-elt)
+(define-key dix-mode-map (kbd "C-c % l") #'dix-replace-regexp-within-l)
+(define-key dix-mode-map (kbd "C-c % r") #'dix-replace-regexp-within-r)
+
+(define-key dix-mode-map (kbd "C-c C-y") #'dix-copy-yank)
+(define-key dix-mode-map (kbd "M-.") #'dix-goto-pardef)
+(define-key dix-mode-map (kbd "M-,") #'pop-to-mark-command)
+
+(define-key dix-mode-map (kbd "<C-tab>") #'dix-restriction-cycle)
+(define-key dix-mode-map (kbd "<C-S-tab>") #'dix-v-cycle)
+(define-key dix-mode-map (kbd "<S-iso-lefttab>") #'dix-v-cycle)
+(define-key dix-mode-map (kbd "M-n") #'dix-next)
+(define-key dix-mode-map (kbd "M-p") #'dix-previous)
+(define-key dix-mode-map (kbd "<SPC>") #'dix-insert-space)
+(define-key dix-mode-map (kbd "<backspace>") #'dix-backspace)
+(define-key dix-mode-map (kbd "C-<") #'dix-<)
+(define-key dix-mode-map (kbd "C->") #'dix->)
+(define-key dix-mode-map (kbd "C-x n s") #'dix-narrow-to-sdef)
 
 ;;; Run hooks -----------------------------------------------------------------
 (run-hooks 'dix-load-hook)
