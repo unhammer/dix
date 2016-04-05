@@ -668,6 +668,53 @@ edit the paths, and add the path to the list
 
 ;;;============================================================================
 ;;;
+;;; Alignment
+;;;
+(defcustom dix-rp-align-column 28 "Column to align pardef <r> elements to with `align'."
+  :type 'integer
+  :group 'dix)
+(defcustom dix-rb-align-column 44 "Column to align bidix <r> elements to with `align'."
+  :type 'integer
+  :group 'dix)
+(defcustom dix-i-align-column 25 "Column to align <i> elements to with `align'."
+  :type 'integer
+  :group 'dix)
+(defcustom dix-ep-align-column 2 "Column to align pardef <e> elements to with `align'.
+Not yet implemented, only used by `dix-LR-restriction-copy'."
+  :type 'integer
+  :group 'dix)
+(defcustom dix-pp-align-column 12 "Column to align pardef <p> elements to with `align'."
+  :type 'integer
+  :group 'dix)
+(defcustom dix-pb-align-column 10 "Column to align bidix <p> elements to with `align'."
+  :type 'integer
+  :group 'dix)
+
+(defun dix-add-align-rule (name regexp column)
+  (add-to-list 'align-rules-list
+	       `(,name
+		 (regexp . ,regexp)
+		 (tab-stop . nil)
+		 (spacing . 0)
+		 (group . 1)
+		 (modes . '(nxml-mode))
+		 (column . ,column))))
+(add-hook
+ 'align-load-hook
+ (lambda ()
+   (dix-add-align-rule
+    'dix-rp-align "\\s-+\\(\\s-*\\)<r>" 'dix-rp-align-column)
+   (dix-add-align-rule                  ;
+    'dix-rb-align "\\(\\s-*\\)<r>" 'dix-rb-align-column)
+   (dix-add-align-rule
+    'dix-i-align "\\(\\s-*\\)<i" 'dix-i-align-column)
+   (dix-add-align-rule
+    'dix-pb-align "^\\S-*\\(\\s-*\\)<p>" 'dix-pb-align-column)
+   (dix-add-align-rule
+    'dix-pp-align "^\\s-+\\S-*\\(\\s-*\\)<p>" 'dix-pp-align-column)))
+
+;;;============================================================================
+;;;
 ;;; Interactive functions
 ;;;
 
@@ -1975,53 +2022,6 @@ DIR (defaults to `default-directory')."
            (w/o-this (if include-this uniq
                        (remove this uniq))))
       (mapcar #'file-relative-name w/o-this))))
-
-;;;============================================================================
-;;;
-;;; Alignment
-;;;
-(defcustom dix-rp-align-column 28 "Column to align pardef <r> elements to with `align'."
-  :type 'integer
-  :group 'dix)
-(defcustom dix-rb-align-column 44 "Column to align bidix <r> elements to with `align'."
-  :type 'integer
-  :group 'dix)
-(defcustom dix-i-align-column 25 "Column to align <i> elements to with `align'."
-  :type 'integer
-  :group 'dix)
-(defcustom dix-ep-align-column 2 "Column to align pardef <e> elements to with `align'.
-Not yet implemented, only used by `dix-LR-restriction-copy'."
-  :type 'integer
-  :group 'dix)
-(defcustom dix-pp-align-column 12 "Column to align pardef <p> elements to with `align'."
-  :type 'integer
-  :group 'dix)
-(defcustom dix-pb-align-column 10 "Column to align bidix <p> elements to with `align'."
-  :type 'integer
-  :group 'dix)
-
-(defun dix-add-align-rule (name regexp column)
-  (add-to-list 'align-rules-list
-	       `(,name
-		 (regexp . ,regexp)
-		 (tab-stop . nil)
-		 (spacing . 0)
-		 (group . 1)
-		 (modes . '(nxml-mode))
-		 (column . ,column))))
-(add-hook
- 'align-load-hook
- (lambda ()
-   (dix-add-align-rule
-    'dix-rp-align "\\s-+\\(\\s-*\\)<r>" 'dix-rp-align-column)
-   (dix-add-align-rule                  ;
-    'dix-rb-align "\\(\\s-*\\)<r>" 'dix-rb-align-column)
-   (dix-add-align-rule
-    'dix-i-align "\\(\\s-*\\)<i" 'dix-i-align-column)
-   (dix-add-align-rule
-    'dix-pb-align "^\\S-*\\(\\s-*\\)<p>" 'dix-pb-align-column)
-   (dix-add-align-rule
-    'dix-pp-align "^\\s-+\\S-*\\(\\s-*\\)<p>" 'dix-pp-align-column)))
 
 ;;;============================================================================
 ;;;
