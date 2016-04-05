@@ -2071,8 +2071,8 @@ users."
 (define-key dix-mode-map (kbd "M-.") #'dix-goto-pardef)
 (define-key dix-mode-map (kbd "M-,") #'pop-to-mark-command)
 
-(define-prefix-command #'dix-replace-prefix)
-(define-key dix-mode-map (kbd "C-c %") #'dix-replace-prefix)
+(define-prefix-command 'dix-replace-prefix)
+(define-key dix-mode-map (kbd "C-c %") 'dix-replace-prefix)
 (define-key dix-mode-map (kbd "C-c % RET") #'dix-replace-regexp-within-elt)
 (define-key dix-mode-map (kbd "C-c % %") #'dix-replace-regexp-within-elt)
 (define-key dix-mode-map (kbd "C-c % l") #'dix-replace-regexp-within-l)
