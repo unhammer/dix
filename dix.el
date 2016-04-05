@@ -1389,13 +1389,11 @@ of the buffer, otherwise nil"
 
 TODO: read modes.xml instead of those using those dix-path*
 variables, and allow both directions (although should have some
-option to override the modes.xml reading).
-
-TODO: word-at-point function which ignores xml stuff."
+option to override the modes.xml reading)."
   (interactive "P")
   (save-selected-window
     (let ((modes dix-modes)
-	  (word (word-at-point))
+	  (word (dix-nearest-greppable))
 	  last-output)
       (pop-to-buffer "*dix-analysis*")
       (dolist (mode modes)
