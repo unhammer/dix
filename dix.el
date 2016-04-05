@@ -111,6 +111,7 @@
 (require 'nxml-mode)
 (require 'cl-lib)
 (require 'easymenu)
+(eval-when-compile (require 'align))
 
 ;;;============================================================================
 ;;;
