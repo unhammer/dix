@@ -624,6 +624,40 @@ and `dix-get-pardefs'."
 
 ;;;============================================================================
 ;;;
+;;; Schemas / validation
+;;;
+(defcustom dix-schema-locating-files nil
+  "List of schema locating files. Used by `dix-schema' to
+populate `rng-schema-locating-files'. If nil, a default schema
+will be added."
+  :type '(repeat file)
+  :group 'dix)
+
+(defun dix-schemas ()
+  "Add default Apertium schemas.xml to locating rules.
+If possible, adds rules for files installed through package
+manager, falling back to files installed using 'sudo make
+install'.
+
+To override, copy the schemas.xml file distributed with dix.el,
+edit the paths, and add the path to the list
+`dix-schema-locating-files'."
+  (if dix-schema-locating-files
+      (setq rng-schema-locating-files (append dix-schema-locating-files
+                                              rng-schema-locating-files))
+    (let ((source-dir (file-name-directory
+                       (concat            ; nil => empty string
+                        (find-lisp-object-file-name #'dix-schemas nil))))
+          (rulefile (if (file-exists-p "/usr/share/lttoolbox/dix.rnc")
+                        "schemas.xml"
+                      "local-schemas.xml")))
+      (add-to-list 'rng-schema-locating-files (concat source-dir rulefile)))))
+
+(add-hook 'dix-load-hook #'dix-schemas)
+
+
+;;;============================================================================
+;;;
 ;;; Yasnippet helpers
 ;;;
 

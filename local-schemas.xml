@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<locatingRules xmlns="http://thaiopensource.com/ns/locating-rules/1.0">
+  <typeId id="dix" uri="/usr/local/share/lttoolbox/dix.rnc"/>
+  <typeId id="transfer" uri="/usr/local/share/apertium/transfer.rnc"/>
+  <typeId id="interchunk" uri="/usr/local/share/apertium/interchunk.rnc"/>
+  <typeId id="postchunk" uri="/usr/local/share/apertium/postchunk.rnc"/>
+  <typeId id="format" uri="/usr/local/share/apertium/format.rnc"/>
+  <typeId id="tagger" uri="/usr/local/share/apertium/tagger.rnc"/>
+  <typeId id="modes" uri="/usr/local/share/apertium/modes.rnc"/>
+
+  <documentElement localName="dictionary" typeId="dix"/>
+  <documentElement localName="transfer" typeId="transfer"/>
+  <documentElement localName="interchunk" typeId="interchunk"/>
+  <documentElement localName="postchunk" typeId="postchunk"/>
+  <documentElement localName="format" typeId="format"/>
+  <documentElement localName="tagger" typeId="tagger"/>
+  <documentElement localName="modes" typeId="modes"/>
+
+  <uri pattern="*.dix" typeId="dix"/>
+  <uri pattern="*.t1x" typeId="transfer"/>
+  <uri pattern="*.t2x" typeId="interchunk"/>
+  <uri pattern="*.t3x" typeId="interchunk"/>
+  <!-- Some pairs have t3x as postchunk, others t4x or even t5x... but
+       if one of the documentElement rules match, these rules are
+       ignored since they're below them. -->
+</locatingRules>
