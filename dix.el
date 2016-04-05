@@ -6,6 +6,7 @@
 ;; Version: 0.2.1
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
+;; Package-Requires: ((cl-lib "0.5"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -1089,7 +1090,7 @@ into the beginning of the lm and <i>."
     (while (< cpos (length str))
       (let ((tr (aref dix-asciify-table (elt str cpos))))
 	(when tr (aset str cpos tr)))
-      (incf cpos)))
+      (cl-incf cpos)))
   str)
 
 (defun dix-token-start ()
@@ -1925,7 +1926,7 @@ by (sixth (file-attributes dix-monodix-left)).")
 new tmpfile and `monodix' timestamp."
   (if (or (not expansion)
 	  (and expansion
-	       (not (equal (sixth (file-attributes monodix))
+	       (not (equal (cl-sixth (file-attributes monodix))
 			   (cdr expansion)))))
       (let ((tmpfile (dix-trim-string
 		      (shell-command-to-string "mktemp -t expansion.XXXXXXXXXX"))))
@@ -1934,7 +1935,7 @@ new tmpfile and `monodix' timestamp."
 	    (progn
 	      (shell-command
 	       (concat "lt-expand " monodix " " tmpfile " &") "*lt-expand*")
-	      (funcall update-expansion tmpfile (sixth (file-attributes monodix)))
+	      (funcall update-expansion tmpfile (cl-sixth (file-attributes monodix)))
 	      (set-process-sentinel (get-buffer-process "*lt-expand*") #'dix-expansion-sentinel))
 	  (error "mktemp command failed: %s" tmpfile)))
     (message "Expansion up-to-date")))
@@ -2004,7 +2005,7 @@ on a previously narrowed buffer (the default behaviour for
                        (caar sections)))
                  (section (assoc id sections)))
             (unless no-widen (widen))
-            (dix-narrow-to-sdef-narrow sdef (second section) (cl-caddr section)))))))
+            (dix-narrow-to-sdef-narrow sdef (cl-second section) (cl-caddr section)))))))
 
 (defun dix-move-to-top ()
   "Move the current element to the top of the file.
