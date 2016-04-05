@@ -1967,8 +1967,9 @@ on a previously narrowed buffer (the default behaviour for
             (unless no-widen (widen))
             (dix-narrow-to-sdef-narrow sdef (second section) (cl-caddr section)))))))
 
-;;; The following is rather nn-nb-specific stuff. Todo: generalise or remove.
 (defun dix-move-to-top ()
+  "Move the current element to the top of the file.
+Can be useful when sorting out entries."
   (interactive)
   (save-excursion
     (if (and transient-mark-mode mark-active)
@@ -1987,7 +1988,9 @@ on a previously narrowed buffer (the default behaviour for
       (insert region)))
   (re-search-forward "\\S "))
 
-(defcustom dix-dixfiles '("*.dix" "dev/*dix") "String list of dictionary files to grep with `dix-grep-all'."
+(defcustom dix-dixfiles '("*.dix" "dev/*dix")
+  "String list of dictionary files to grep with `dix-grep-all'.
+Can contain shell globs."
   :type '(list string)
   :group 'dix)
 
