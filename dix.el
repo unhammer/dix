@@ -2023,19 +2023,6 @@ DIR (defaults to `default-directory')."
 
 ;;;============================================================================
 ;;;
-;;; Evil integration
-;;;
-
-(eval-after-load 'evil
-  '(progn
-     (evil-declare-motion #'dix-next)
-     (evil-declare-motion #'dix-previous)
-     (evil-declare-motion #'dix-move-to-top)
-     (evil-declare-motion #'dix-backward-up-element)
-     (evil-declare-motion #'dix-goto-pardef)))
-
-;;;============================================================================
-;;;
 ;;; Keybindings
 ;;;
 (defun dix-C-c-letter-keybindings ()
