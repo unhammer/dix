@@ -527,48 +527,48 @@ is also a member of ATTRIBUTES (in the format of
 Helper for `dix-next' (move back if BACKWARD non-nil).
 TODO: handle pardef entries too; make non-recursive."
 
-  (defun move (spot)
-    (if (if backward (< spot (point)) (> spot (point)))
-	(goto-char spot)
-      (progn (forward-char (if backward -1 1))
-	     (dix-next-one backward))))
+  (cl-flet ((move (spot)
+                  (if (if backward (< spot (point)) (> spot (point)))
+                      (goto-char spot)
+                    (progn (forward-char (if backward -1 1))
+                           (dix-next-one backward)))))
 
-  (let* ((token-end (nxml-token-before))
-	 (token-next (if backward
-			 xmltok-start
-		       (1+ token-end)))
-	 (qname (xmltok-start-tag-qname))
-	 (interest (cdr (assoc qname dix-interesting)))
-	 (near-int (dix-nearest-interesting xmltok-attributes
-					    (point)
-					    backward
-					    interest)))
-    (cond ((eq (point) (if backward (point-min) (point-max)))
-	   t)
+    (let* ((token-end (nxml-token-before))
+           (token-next (if backward
+                           xmltok-start
+                         (1+ token-end)))
+           (qname (xmltok-start-tag-qname))
+           (interest (cdr (assoc qname dix-interesting)))
+           (near-int (dix-nearest-interesting xmltok-attributes
+                                              (point)
+                                              backward
+                                              interest)))
+      (cond ((eq (point) (if backward (point-min) (point-max)))
+             t)
 
-	  ((memq xmltok-type '(prolog comment))
-	   (goto-char token-next)
-	   (dix-next-one backward))
+            ((memq xmltok-type '(prolog comment))
+             (goto-char token-next)
+             (dix-next-one backward))
 
-	  (near-int			; interesting attribute
-	   (move near-int))		; to go to
+            (near-int			; interesting attribute
+             (move near-int))		; to go to
 
-	  ((or interest	; interesting element but no next interesting attribute
-	       (member qname dix-skip-empty)) ; skip if empty
-	   (move token-next)
-	   (dix-next-one backward))
+            ((or interest	; interesting element but no next interesting attribute
+                 (member qname dix-skip-empty)) ; skip if empty
+             (move token-next)
+             (dix-next-one backward))
 
-	  ((memq xmltok-type '(space data end-tag))
-	   (and (goto-char token-next)
-		(not (and backward ; need to goto these elts from data
-			  (nxml-token-before) ; before looping on:
-			  (member (xmltok-start-tag-qname) '("r" "l" "i"))))
-		(dix-next-one backward)))
+            ((memq xmltok-type '(space data end-tag))
+             (and (goto-char token-next)
+                  (not (and backward ; need to goto these elts from data
+                            (nxml-token-before) ; before looping on:
+                            (member (xmltok-start-tag-qname) '("r" "l" "i"))))
+                  (dix-next-one backward)))
 
-	  ;; TODO: should instead while-loop until the next member of
-	  ;; dix-interesting, or maybe the default should be to go to
-	  ;; the next _attribute_, whatever it is?
- 	  (t (move token-end)))))
+            ;; TODO: should instead while-loop until the next member of
+            ;; dix-interesting, or maybe the default should be to go to
+            ;; the next _attribute_, whatever it is?
+            (t (move token-end))))))
 
 
 (defun dix-compile-suffix-map (partype)
@@ -1231,26 +1231,26 @@ their <r>'s.
 
 Only stops at the first mismatch within one pardef."
   (interactive)
-  (defun next-pardef ()
-    (and (search-forward "pardef" nil t) (next-rhs)))
-  (defun next-rhs ()
-    (re-search-forward "<r>\\([^<]*\\)<\\|\\(</pardef>\\)" nil t))
-  (let ((keep-looking (next-pardef))	; find first hit
-	(last-rhs (match-string 1)))
-    ;; Check next ones for mismatches:
-    (while keep-looking
-      (if (equal (match-string 2) "</pardef>")
-	  (setq keep-looking (next-pardef) ; skip to next <pardef>
-		last-rhs (match-string 1))
-	(if (equal (match-string 1) last-rhs)
-	    (next-rhs)			; skip to next <e>
-	  (setq keep-looking nil))))
-    ;; Echo results:
-    (if (match-string 1)
-	(and (goto-char (match-end 1))
-	     (message
-	      (concat "Possible mismatch in <r>: " last-rhs " vs " (match-string 1))))
-      (message "No mismatches discovered."))))
+  (cl-flet* ((next-rhs ()
+                       (re-search-forward "<r>\\([^<]*\\)<\\|\\(</pardef>\\)" nil t))
+             (next-pardef ()
+                          (and (search-forward "pardef" nil t) (next-rhs))))
+    (let ((keep-looking (next-pardef))	; find first hit
+          (last-rhs (match-string 1)))
+      ;; Check next ones for mismatches:
+      (while keep-looking
+        (if (equal (match-string 2) "</pardef>")
+            (setq keep-looking (next-pardef) ; skip to next <pardef>
+                  last-rhs (match-string 1))
+          (if (equal (match-string 1) last-rhs)
+              (next-rhs)			; skip to next <e>
+            (setq keep-looking nil))))
+      ;; Echo results:
+      (if (match-string 1)
+          (and (goto-char (match-end 1))
+               (message
+                (concat "Possible mismatch in <r>: " last-rhs " vs " (match-string 1))))
+        (message "No mismatches discovered.")))))
 
 (defun dix-next (&optional step)
   "Move to the next 'interesting' element/attribute.
@@ -1611,33 +1611,33 @@ A bit hacky I guess, but I don't want to require nxhtml just to
 get nxml-where-path, and reimplementing an XML Path seems rather
 too much work for this."
 
-  (defun in-elt (names)	; nxml-token-before must be called before this
-    (let ((eltname (save-excursion
-		     (goto-char xmltok-start)
-		     (when (equal xmltok-type 'data)
-		       (nxml-token-before)
-		       (goto-char xmltok-start))
-		     (xmltok-start-tag-qname))))
-      (and eltname (member eltname names))))
+  (cl-flet ((in-elt (names)	; nxml-token-before must be called before this
+                    (let ((eltname (save-excursion
+                                     (goto-char xmltok-start)
+                                     (when (equal xmltok-type 'data)
+                                       (nxml-token-before)
+                                       (goto-char xmltok-start))
+                                     (xmltok-start-tag-qname))))
+                      (and eltname (member eltname names)))))
 
-  (nxml-token-before)
-  (cond ((and (or (eq xmltok-type 'data)
-		  (and (memq xmltok-type '(start-tag empty-element))
-		       (dix-point-after->)))
-	      (in-elt '("g" "b" "r" "l" "i")))
-	 "<b/>")
-	((and (catch 'in-attr
-		(dolist (attr xmltok-attributes)
-		  (if (and (xmltok-attribute-value-start attr)
-			   (>= (point) (xmltok-attribute-value-start attr))
-			   (xmltok-attribute-value-end   attr)
-			   (<= (point) (xmltok-attribute-value-end   attr))
-			   (equal (xmltok-attribute-local-name attr) "n"))
-		      (throw 'in-attr t))))
-	      (in-elt '("par" "pardef")))
-	 "_")
-	(t
-	 " ")))
+    (nxml-token-before)
+    (cond ((and (or (eq xmltok-type 'data)
+                    (and (memq xmltok-type '(start-tag empty-element))
+                         (dix-point-after->)))
+                (in-elt '("g" "b" "r" "l" "i")))
+           "<b/>")
+          ((and (catch 'in-attr
+                  (dolist (attr xmltok-attributes)
+                    (if (and (xmltok-attribute-value-start attr)
+                             (>= (point) (xmltok-attribute-value-start attr))
+                             (xmltok-attribute-value-end   attr)
+                             (<= (point) (xmltok-attribute-value-end   attr))
+                             (equal (xmltok-attribute-local-name attr) "n"))
+                        (throw 'in-attr t))))
+                (in-elt '("par" "pardef")))
+           "_")
+          (t
+           " "))))
 
 (defun dix-insert-space ()
   "Insert a `dix-space' at point."
