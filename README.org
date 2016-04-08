@@ -1,3 +1,4 @@
 * dix.el -- minor mode for editing Apertium language data
 
-See http://wiki.apertium.org/wiki/Emacs
+See http://wiki.apertium.org/wiki/Emacs and commentary at the top of
+[[file:dix.el][dix.el]].

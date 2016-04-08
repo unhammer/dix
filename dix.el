@@ -25,15 +25,24 @@
 
 ;;; Commentary:
 
-;; Usage:
-;; (add-to-list 'load-path "/path/to/dix.el-folder")
-;; (autoload 'dix-mode "dix"
-;;   "dix-mode is a minor mode for editing Apertium XML dictionary files."  t)
+;; Basic usage:
+;;
 ;; (add-hook 'nxml-mode-hook
 ;; 	  (lambda () (and buffer-file-name
 ;; 			  (string-match "^modes\\.xml$\\|\\.\\(dix\\|metadix\\|t[0-9s]x\\|lrx\\)$"
 ;;                                      buffer-file-name)
 ;; 			  (dix-mode 1))))
+;;
+;; Unless you installed from MELPA, you'll also need
+;;
+;; (add-to-list 'load-path "/path/to/dix.el-folder")
+;; (autoload 'dix-mode "dix"
+;;   "dix-mode is a minor mode for editing Apertium XML dictionary files."  t)
+;;
+;; If you actually work on Apertium packages, you'll probaby want some
+;; other related Emacs extensions as well; see
+;; http://wiki.apertium.org/wiki/Emacs#Quickstart for an init file
+;; that installs and configures both dix.el and some related packages.
 
 ;; If you want keybindings that use `C-c' followed by letters, you
 ;; should also add
@@ -76,8 +85,6 @@
 ;; column numbers with M-x customize-group RET dix.
 
 ;; Plan / long term todo:
-;; - Switch default keybindings so they follow Emacs Key Bindings
-;;   conventions
 ;; - Yank into <i/l/r> or pardef n="" should replace spaces with either
 ;;   a <b/> or a _
 ;; - Functions shouldn't modify the kill-ring.
