@@ -697,7 +697,7 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
 (defcustom dix-pp-align-column 12 "Column to align pardef <p> elements to with `align'."
   :type 'integer
   :group 'dix)
-(defcustom dix-pb-align-column 10 "Column to align bidix <p> elements to with `align'."
+(defcustom dix-pb-align-column 10 "Column to align bidix <p> (and <re>) elements to with `align'."
   :type 'integer
   :group 'dix)
 
@@ -720,7 +720,7 @@ Not yet implemented, only used by `dix-LR-restriction-copy'."
    (dix-add-align-rule
     'dix-i-align "\\(\\s-*\\)<i" 'dix-i-align-column)
    (dix-add-align-rule
-    'dix-pb-align "^\\S-*\\(\\s-*\\)<p>" 'dix-pb-align-column)
+    'dix-pb-align "^\\S-*\\(\\s-*\\)<\\(p\\|re\\)>" 'dix-pb-align-column)
    (dix-add-align-rule
     'dix-pp-align "^\\s-+\\S-*\\(\\s-*\\)<p>" 'dix-pp-align-column)))
 
@@ -817,7 +817,7 @@ End:
       (cond  ((looking-at "<i") (indent-to dix-i-align-column))
 	     ((save-excursion (search-forward "</pardef>" nil 'noerror 1))
 	      (indent-to dix-pp-align-column))
-	     ((looking-at "<p") (indent-to dix-pb-align-column))))))
+	     ((looking-at "<p\\|<re") (indent-to dix-pb-align-column))))))
 
 (defun dix-restriction-cycle (&optional dir)
   "Cycle through possible values of the `r' attribute.
@@ -855,7 +855,7 @@ Optional argument DIR is a string, either \"\", \"LR\" or
       (cond  ((looking-at "<i") (indent-to dix-i-align-column))
              ((save-excursion (search-forward "</pardef>" nil 'noerror 1))
               (indent-to dix-pp-align-column))
-             ((looking-at "<p") (indent-to dix-pb-align-column))))))
+             ((looking-at "<p\\|<re") (indent-to dix-pb-align-column))))))
 
 (defun dix-LR-restriction-copy (&optional RL)
   "Make a copy of the Apertium element we're looking at, and add
