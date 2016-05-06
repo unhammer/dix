@@ -1,3 +1,4 @@
-dix.elc
-dix-yas.elc
-dix-tests.elc
+/dix.elc
+/dix-yas.elc
+/dix-tests.elc
+/dix-evil.elc
