@@ -3,7 +3,10 @@
 ;; Copyright (C) 2015-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
+;; Version: 0.1.0
+;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
+;; Package-Requires: ((dix "0.3.0") (evil "1.0.7"))
 
 ;; This file is not part of GNU Emacs.
 
