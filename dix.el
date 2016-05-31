@@ -128,6 +128,12 @@
 (defvar dix-mode-map (make-sparse-keymap)
   "Keymap for dix minor mode.")
 
+(defvar dix-mode-syntax-table
+  (let ((st (copy-syntax-table nxml-mode-syntax-table)))
+    (modify-syntax-entry ?: "_" st)
+    st)
+  "Syntax table for dix minor mode.")
+
 (defgroup dix nil
   "Minor mode for editing Apertium XML dictionaries."
   :tag "Apertium dix"
@@ -149,7 +155,8 @@ Entering dix-mode calls the hook dix-mode-hook.
   :init-value nil
   :lighter    " dix"
   :keymap     dix-mode-map
-  :require    nxml-mode)
+  :require    nxml-mode
+  (set-syntax-table dix-mode-syntax-table))
 
 
 ;;;============================================================================
