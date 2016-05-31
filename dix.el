@@ -130,7 +130,9 @@
 
 (defvar dix-mode-syntax-table
   (let ((st (copy-syntax-table nxml-mode-syntax-table)))
+    (modify-syntax-entry ?@ "_" st)
     (modify-syntax-entry ?: "_" st)
+    (modify-syntax-entry ?. "_" st)
     st)
   "Syntax table for dix minor mode.")
 
