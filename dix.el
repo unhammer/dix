@@ -3,7 +3,7 @@
 ;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
 ;; Package-Requires: ((cl-lib "0.5"))
@@ -113,7 +113,7 @@
 
 ;;; Code:
 
-(defconst dix-version "0.3.0")
+(defconst dix-version "0.3.1")
 
 (require 'nxml-mode)
 (require 'cl-lib)
