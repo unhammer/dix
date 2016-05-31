@@ -313,6 +313,22 @@ stop on finding another `ELTNAME' element."
     (if (equal tok barrier)
 	(signal 'dix-barrier-error (format "Didn't find %s" eltname)))))
 
+(defun dix-enclosing-allows-choose ()
+  "Heuristically answer if the element we're inside can have a <choose> element."
+  (let ((elt (dix-enclosing-elt 'noerror)))
+    (or (and elt
+             (member elt '("def-macro"
+                           "action"
+                           "when"       ; only in when after <test> though …
+                           "otherwise"))))))
+
+(defun dix-enclosing-allows-clip ()
+  "Heuristically answer if the element we're inside can have a <choose> element."
+  (let ((elt (dix-enclosing-elt 'noerror)))
+    (or (and elt
+             (member elt '("equal"
+                           "let"))))))
+
 (defun dix-enclosing-is-mono-section ()
   "Heuristically answer if the element we're inside is (monolingual) <section>.
 A `dix-enclosing-elt' from outside an <e> in a <section> will
