@@ -315,21 +315,50 @@ stop on finding another `ELTNAME' element."
     (if (equal tok barrier)
 	(signal 'dix-barrier-error (format "Didn't find %s" eltname)))))
 
-(defun dix-enclosing-allows-choose ()
-  "Heuristically answer if the element we're inside can have a <choose> element."
-  (let ((elt (dix-enclosing-elt 'noerror)))
-    (or (and elt
-             (member elt '("def-macro"
-                           "action"
-                           "when"       ; only in when after <test> though …
-                           "otherwise"))))))
+(defvar dix-transfer-entities
+  '((condition . ("and" "or" "not" "equal" "begins-with" "begins-with-list" "ends-with" "ends-with-list" "contains-substring" "in"))
+    (container . ("var" "clip"))
+    (sentence . ("let" "out" "choose" "modify-case" "call-macro" "append" "reject-current-rule"))
+    (value . ("b" "clip" "lit" "lit-tag" "var" "get-case-from" "case-of" "concat" "lu" "mlu" "chunk"))
+    (stringvalue . ("clip" "lit" "var" "get-case-from" "case-of")))
+  "From transfer.dtd; interchunk/postchunk TODO.")
 
-(defun dix-enclosing-allows-clip ()
-  "Heuristically answer if the element we're inside can have a <choose> element."
-  (let ((elt (dix-enclosing-elt 'noerror)))
-    (or (and elt
-             (member elt '("equal"
-                           "let"))))))
+(defvar dix-transfer-elements
+  '((def-macro sentence)
+    (action sentence)
+    (when sentence)
+    (otherwise sentence)
+    (test condition)
+    (and condition)
+    (or condition)
+    (not condition)
+    (equal value)
+    (begins-with value)
+    (ends-with value)
+    (begins-with-list value)
+    (ends-with-list value)
+    (contains-substring value)
+    (in value)
+    (let value container)
+    (append value)
+    (modify-case stringvalue container)
+    (concat value)
+    (lu value)
+    (tag value))
+  "From transfer.dtd; interchunk/postchunk TODO.")
+
+(defun dix-transfer-allowed-children (parent)
+  "Return a list of strings of allowed child elts of PARENT."
+  (let* ((parent (if (stringp parent) (intern parent) parent  ()))
+         (ent-types (assoc parent dix-transfer-elements)))
+    (cl-mapcan (lambda (type) (cdr (assoc type dix-transfer-entities)))
+               ent-types)))
+
+(defun dix-transfer-enclosing-allows (child)
+  "Answer if the element we're inside can contain CHILD in a transfer file."
+  (let ((parent (dix-enclosing-elt 'noerror)))
+    (and parent
+         (member child (dix-transfer-allowed-children parent)))))
 
 (defun dix-enclosing-is-mono-section ()
   "Heuristically answer if the element we're inside is (monolingual) <section>.
