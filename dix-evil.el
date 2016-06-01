@@ -47,6 +47,8 @@
 (evil-declare-motion #'dix-move-to-top)
 (evil-declare-motion #'dix-backward-up-element)
 (evil-declare-motion #'dix-goto-pardef)
+(evil-declare-not-repeat #'dix-view-pardef)
+(evil-declare-not-repeat #'dix-grep-all)
 
 (provide 'dix-evil)
 
