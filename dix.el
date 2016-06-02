@@ -349,7 +349,7 @@ stop on finding another `ELTNAME' element."
 
 (defun dix-transfer-allowed-children (parent)
   "Return a list of strings of allowed child elts of PARENT."
-  (let* ((parent (if (stringp parent) (intern parent) parent  ()))
+  (let* ((parent (if (stringp parent) (intern parent) parent))
          (ent-types (assoc parent dix-transfer-elements)))
     (cl-mapcan (lambda (type) (cdr (assoc type dix-transfer-entities)))
                ent-types)))
