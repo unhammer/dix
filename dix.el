@@ -1435,6 +1435,50 @@ of the buffer, otherwise nil"
          (not keep-looking)
          (point))))
 
+(defun dix-find-next-file (&optional reverse)
+  "Guess a reasonable \"next\" file and open it.
+E.g. from transfer foo-bar.t2x, go to foo-bar.t3x; wrapping
+around to t1x if no higher exists.  If REVERSE, find \"previous\"
+file."
+  ;; TODO: It would be nice to go between bidix and monodix, but
+  ;; what's a logical interface? also, discovery requires parsing
+  ;; config.log's or similar, and there can be vr's leading to
+  ;; multiple monodix for either direction …
+  (interactive "P")
+  (let* ((file (buffer-file-name))
+         (dir (file-name-directory file))
+         (base (file-name-base file))
+         (ext (file-name-extension file))
+         (butext (concat (file-name-as-directory dir) base "."))
+         (get-next (if reverse #'1- #'1+))
+         (get-prev (if reverse #'1+ #'1-))
+         (full-t?x (lambda (n)
+                     (let ((path (concat butext "t" (number-to-string n) "x")))
+                       (and (file-exists-p path)
+                            path))))
+         (tNx (and (string-match "^t\\([0-9]\\)x$" ext)
+                   (string-to-number (match-string 1 ext))))
+         (t1x (and tNx
+                   (let ((nn tNx)) ; find the lowest/highest existing t?x
+                     (while (funcall full-t?x (funcall get-prev nn))
+                       (setq nn (funcall get-prev nn)))
+                     (funcall full-t?x nn))))
+         (t1+x (and tNx
+                    (funcall full-t?x (funcall get-next tNx))))
+         (next-file (cl-find-if-not #'not               ; find first non-nil
+                                    (list t1+x
+                                          t1x))))
+    (if next-file
+        (find-file next-file)
+      (message "dix.el couldn't guess as to what's the logical next file"))))
+
+(defun dix-find-previous-file ()
+  "Guess a reasonable \"previous\" file and open it.
+E.g. from transfer foo-bar.t2x, go to foo-bar.t1x; wrapping
+around to t3x if no lower exists."
+  (interactive)
+  (dix-find-next-file 'previous))
+
 
 (defvar dix-modes
   '((nn-nb ("lt-proc"    "/l/n/nn-nb.automorf.bin")
@@ -2137,6 +2181,8 @@ users."
 (define-key dix-mode-map (kbd "<S-iso-lefttab>") #'dix-v-cycle)
 (define-key dix-mode-map (kbd "M-n") #'dix-next)
 (define-key dix-mode-map (kbd "M-p") #'dix-previous)
+(define-key dix-mode-map (kbd "M-N") #'dix-find-next-file)
+(define-key dix-mode-map (kbd "M-P") #'dix-find-previous-file)
 (define-key dix-mode-map (kbd "<SPC>") #'dix-insert-space)
 (define-key dix-mode-map (kbd "<backspace>") #'dix-backspace)
 (define-key dix-mode-map (kbd "C-<") #'dix-<)
