@@ -316,11 +316,11 @@ stop on finding another `ELTNAME' element."
 	(signal 'dix-barrier-error (format "Didn't find %s" eltname)))))
 
 (defvar dix-transfer-entities
-  '((condition . ("and" "or" "not" "equal" "begins-with" "begins-with-list" "ends-with" "ends-with-list" "contains-substring" "in"))
-    (container . ("var" "clip"))
-    (sentence . ("let" "out" "choose" "modify-case" "call-macro" "append" "reject-current-rule"))
-    (value . ("b" "clip" "lit" "lit-tag" "var" "get-case-from" "case-of" "concat" "lu" "mlu" "chunk"))
-    (stringvalue . ("clip" "lit" "var" "get-case-from" "case-of")))
+  '((condition "and" "or" "not" "equal" "begins-with" "begins-with-list" "ends-with" "ends-with-list" "contains-substring" "in")
+    (container "var" "clip")
+    (sentence "let" "out" "choose" "modify-case" "call-macro" "append" "reject-current-rule")
+    (value "b" "clip" "lit" "lit-tag" "var" "get-case-from" "case-of" "concat" "lu" "mlu" "chunk")
+    (stringvalue "clip" "lit" "var" "get-case-from" "case-of"))
   "From transfer.dtd; interchunk/postchunk TODO.")
 
 (defvar dix-transfer-elements
@@ -350,7 +350,7 @@ stop on finding another `ELTNAME' element."
 (defun dix-transfer-allowed-children (parent)
   "Return a list of strings of allowed child elts of PARENT."
   (let* ((parent (if (stringp parent) (intern parent) parent))
-         (ent-types (assoc parent dix-transfer-elements)))
+         (ent-types (cdr (assoc parent dix-transfer-elements))))
     (cl-mapcan (lambda (type) (cdr (assoc type dix-transfer-entities)))
                ent-types)))
 
