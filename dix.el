@@ -351,8 +351,9 @@ stop on finding another `ELTNAME' element."
   "Return a list of strings of allowed child elts of PARENT."
   (let* ((parent (if (stringp parent) (intern parent) parent))
          (ent-types (cdr (assoc parent dix-transfer-elements))))
-    (cl-mapcan (lambda (type) (cdr (assoc type dix-transfer-entities)))
-               ent-types)))
+    (cl-reduce #'append
+     (mapcar (lambda (type) (cdr (assoc type dix-transfer-entities)))
+             ent-types))))
 
 (defun dix-transfer-enclosing-allows (child)
   "Answer if the element we're inside can contain CHILD in a transfer file."
