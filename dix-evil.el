@@ -50,6 +50,9 @@
 (evil-declare-not-repeat #'dix-view-pardef)
 (evil-declare-not-repeat #'dix-grep-all)
 
+(advice-add #'dix-goto-pardef :before (defun dix-goto-pardef-push-jump (&rest ignore)
+                                        (evil--jumps-push)))
+
 (provide 'dix-evil)
 
 ;;;============================================================================
