@@ -410,7 +410,8 @@ Optional argument CLEAN removes trailing __n and such."
 (defun dix-lemma-at-point ()
   "Find the nearest lm attribute of this e element.
 In a bidix, gives the contents of nearest of l/r."
-  (if (string-match "-[^.]+\\.[^.]+$" (buffer-file-name))
+  ;; TODO: handle <b>'s and <g>'s correctly, skipping <s>'s
+  (if (dix-is-bidix)
       (dix-l/r-word-at-point) ;; bidix
     (save-excursion   ;; monodix
       (dix-up-to "e" "section")
@@ -575,10 +576,8 @@ If BACKWARD, we we want only elements of ARGS that are lower than
 PIVOT, otherwise only higher."
   (let ((cmp (if backward '< '>))
 	(nearest (if backward 'max 'min)))
-    (let ((OK (remove nil
-		      (mapcar (lambda (x)
-				(when (and x (funcall cmp x pivot)) x))
-			      args))))
+    (let ((OK (dix-filter (lambda (x) (and x (funcall cmp x pivot)))
+                          args)))
       (when OK (apply nearest OK)))))
 
 (defun dix-nearest-interesting (attributes pivot backward interest)
@@ -689,16 +688,23 @@ and `dix-get-pardefs'."
 	    (setq sufflist (cons (match-string-no-properties 1) sufflist)))))
       (sort sufflist 'string-lessp))))
 
-(defun assoc-delete-all (key alist)
+(defun dix-assoc-delete-all (key alist)
   "Delete all instances of KEY in ALIST.
 Returns a copy (does not modify the original list)."
   (if alist
       (if (equal (caar alist) key)
-	  (assoc-delete-all key (cdr alist))
+	  (dix-assoc-delete-all key (cdr alist))
 	(cons (car alist)
-	      (assoc-delete-all key (cdr alist))))))
+	      (dix-assoc-delete-all key (cdr alist))))))
 
-
+(defun dix-invert-alist (a)
+  "Invert the alist A so values become keys and keys values.
+Values should of course be unique.  The new values will lists."
+  (apply #'append
+         (mapcar (lambda (entry)
+                   (mapcar (lambda (c) (list c (car entry)))
+                           (cdr entry)))
+                 a)))
 
 ;;;============================================================================
 ;;;
@@ -817,7 +823,7 @@ Returns the list of pardef names."
 	   (pardefs (dix-get-pardefs (dix-compile-sorted-suffix-list)
 				     suffmap)))
       (when (or recompile (not foundmap))
-	(setq dix-suffix-maps (assoc-delete-all partype dix-suffix-maps))
+	(setq dix-suffix-maps (dix-assoc-delete-all partype dix-suffix-maps))
 	(add-to-list 'dix-suffix-maps (cons partype suffmap) 'append))
       (message (prin1-to-string pardefs))
       pardefs)))
@@ -1012,22 +1018,30 @@ into the beginning of the lm and <i>."
   (dix-first-cdata-of-elt (car (dix-r-at-point-reg))))
 
 (defun dix-l/r-at-point-reg ()
-  "Return nearest region of of <l>/<r> as pair of buffer positions."
-  (let ((l (dix-l-at-point-reg))
-        (r (dix-r-at-point-reg)))
-    (cond
-     ((< (point) (cdr l)) l)
-     ((> (point) (car r)) r)
-     ((< (- (point)
-            (cdr l))
-         (- (car r)
-            (point)))
-      l)
-     (t r))))
+  "Return nearest region of <l>/<r> as a tagged pair of buffer positions.
+The return value is of the form '(TAG . (BEG . END)) where TAG is
+the symbol `l' or `r', while BEG and END are buffer positions."
+  (let* ((l (dix-l-at-point-reg))
+         (r (dix-r-at-point-reg))
+         (nearest (cond
+                   ((< (point) (cdr l)) 'l)
+                   ((> (point) (car r)) 'r)
+                   ((< (- (point)
+                          (cdr l))
+                       (- (car r)
+                          (point)))
+                    'l)
+                   (t 'r))))
+    (if (eq nearest 'l)
+        (cons nearest l)
+      (cons nearest r))))
 
 (defun dix-l/r-word-at-point ()
   "Return first available CDATA of nearest <l> or <r> as string."
-  (dix-first-cdata-of-elt (car (dix-l/r-at-point-reg))))
+  (let* ((tr (dix-l/r-at-point-reg))
+         (reg (cdr tr))
+         (beg (car reg)))
+    (dix-first-cdata-of-elt beg)))
 
 
 (defvar dix-char-alist
@@ -1251,6 +1265,10 @@ wish."
 (defvar dix-search-substring nil
   "Set by `dix-word-search-forward'.")
 
+(defun dix-is-bidix ()
+  "True if buffer file name bidix-like (rather than monodix)."
+  (string-match-p "[.]..+-..+[.]dix" (buffer-file-name)))
+
 (defun dix-word-search-forward (&optional whole-word)
   "Incremental word-search for dix files.
 
@@ -1273,7 +1291,7 @@ TODO:
   (isearch-mode
    'forward 'regexp
    (lambda ()
-     (let* ((bidix (string-match "\\...*-..*\\.dix" (buffer-file-name)))
+     (let* ((bidix (dix-is-bidix))
 	    (l (if bidix ">" "lm=\""))
 	    (r (if bidix "<" "\""))
 	    (affix (when dix-search-substring
@@ -1289,7 +1307,6 @@ TODO:
        (isearch-search)
        (isearch-push-state)
        (isearch-update)))))
-
 
 (defun dix-find-rhs-mismatch ()
   "Find possible mismatches in <r> elements.
@@ -1672,7 +1689,7 @@ The guesser will first try to find a tag from the same
 context (ie. a tag that was seen after the tag we're adding a tag
 after)."
   (interactive)
-  (let ((reg (dix-l/r-at-point-reg)))
+  (let ((reg (cdr (dix-l/r-at-point-reg))))
     ;; (elt (buffer-substring-no-properties (+ 1 (car reg))
     ;;                                      (+ 2 (car reg))))
     ;; Move so we're inside the l or r:
@@ -2133,6 +2150,65 @@ DIR (defaults to `default-directory')."
                        (remove this uniq))))
       (mapcar #'file-relative-name w/o-this))))
 
+(defvar dix-iso639-3-metacodes '(("nor" "nno" "nob") ("fit" "swe"))
+  "Alist of metalanguages to individual languages.")
+
+(defmacro dix-filter (pred lst)
+  "Test PRED on each elt of LST, removing non-true values."
+  `(delq nil
+         (mapcar (lambda (elt) (when (funcall ,pred elt) elt))
+                 ,lst)))
+
+(defun dix-files-other-ext (ext &optional reverse)
+  "Find the source file(s) with extension EXT corresponding to this file.
+If REVERSE, find the file of the opposite direction of this
+file's direction.  Returns a list, since metacodes and variants
+means we can have multiple files per direction."
+  (let* ((file (buffer-file-name))
+         (dir (file-name-directory file))
+         (base (file-name-base file))
+         (butext (concat (file-name-as-directory dir) base "."))
+         (prefix (and (string-match "\\(.*\\)[.]\\([^.-]+\\)-\\([^.-]+\\)[.]$"
+                                    butext)
+                      (match-string 1 butext)))
+         (src (if reverse (match-string 3 butext) (match-string 2 butext)))
+         (trg (if reverse (match-string 2 butext) (match-string 3 butext)))
+         (metacodes (append
+                     dix-iso639-3-metacodes
+                     (dix-invert-alist dix-iso639-3-metacodes)))
+         (with-metacodes (lambda (c) (or (assoc c metacodes)
+                                    (list c)))))
+    (dix-filter #'file-exists-p
+                (apply #'append
+                       (mapcar (lambda (cs)
+                                 (mapcar (lambda (ct)
+                                           (format "%s.%s-%s.%s" prefix cs ct ext))
+                                         (funcall with-metacodes trg)))
+                               (funcall with-metacodes src))))))
+
+(defun dix-goto-lrx (&optional reverse)
+  "Find the bidix word at point in the corresponding lrx-file.
+Assumes we want the file where word would be the source language;
+if REVERSE, treat the word as target instead."
+  (interactive "P")
+  (let* ((tr (dix-l/r-at-point-reg))
+         (tag (car tr))
+         (w (substring-no-properties
+             (dix-first-cdata-of-elt (cadr tr))))
+         (reverse (if (eq 'l tag) reverse (not reverse)))
+         (files (dix-files-other-ext "lrx" reverse))
+         (file (if (cdr files)
+                   (completing-read "File: " files nil t
+                                    (if (cdr files) nil (car files)))
+                 (car files))))
+    ;; TODO: might also want to filter lists by those that have that lemma?
+    (find-file file)
+    (let ((p (save-excursion
+               (goto-char (point-min))
+               (search-forward (format "lemma=\"%s\"" w)))))
+      ;; Ie. don't move point if search failed
+      (goto-char p))))
+
 ;;;============================================================================
 ;;;
 ;;; Keybindings
@@ -2167,6 +2243,7 @@ users."
 (define-key dix-mode-map (kbd "C-c +") #'dix-copy)
 (define-key dix-mode-map (kbd "C-c C-y") #'dix-copy-yank)
 (define-key dix-mode-map (kbd "M-g r") #'dix-goto-rule-number)
+(define-key dix-mode-map (kbd "C-c M-.") #'dix-goto-lrx)
 (define-key dix-mode-map (kbd "M-.") #'dix-goto-pardef)
 (define-key dix-mode-map (kbd "M-,") #'pop-to-mark-command)
 
