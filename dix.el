@@ -130,8 +130,8 @@
 
 (defvar dix-mode-syntax-table
   (let ((st (copy-syntax-table nxml-mode-syntax-table)))
-    (modify-syntax-entry ?< "." st)
-    (modify-syntax-entry ?> "." st)
+    (modify-syntax-entry ?< "(" st)
+    (modify-syntax-entry ?> ")" st)
     (modify-syntax-entry ?@ "_" st)
     (modify-syntax-entry ?: "_" st)
     (modify-syntax-entry ?. "_" st)
@@ -2208,6 +2208,22 @@ if REVERSE, treat the word as target instead."
                (search-forward (format "lemma=\"%s\"" w)))))
       ;; Ie. don't move point if search failed
       (goto-char p))))
+
+;;;============================================================================
+;;;
+;;; Advice
+;;;
+
+(advice-add #'fixup-whitespace
+            :after
+            (defun dix-fixup-whitespace ()
+                "No whitespace between > and < in dix-mode.
+Makes `join-line' do the right thing."
+                (when (and dix-mode
+                           (save-excursion (forward-char -1)
+                                           (looking-at "\\s) \\s(")))
+                  (delete-horizontal-space))))
+
 
 ;;;============================================================================
 ;;;
