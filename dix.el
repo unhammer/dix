@@ -84,7 +84,7 @@
 ;; achieve that, and also aligns <p> and <r>.  Set your favorite
 ;; column numbers with M-x customize-group RET dix.
 
-;; Plan / long term todo:
+;; Plan / long term TODO:
 ;; - Yank into <i/l/r> or pardef n="" should replace spaces with either
 ;;   a <b/> or a _
 ;; - Functions shouldn't modify the kill-ring.
@@ -110,6 +110,8 @@
 ;;   do with spaces
 ;; - `dix-reverse' should be able to reverse on a regexp match, so
 ;;   that we can do `dix-suffix-sort' by eg. <l>-elements.
+;; - Investigate if Emacs built-in `tildify-mode' should be used to
+;;   implement `dix-space'.
 
 ;;; Code:
 
