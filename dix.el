@@ -2025,6 +2025,7 @@ tab-complete on sdefs and sections.
 Optional prefix argument `no-widen' lets you narrow even more in
 on a previously narrowed buffer (the default behaviour for
 `narrow-to-region'), otherwise the buffer is widened first."
+  ;; TODO: DTRT in monodix too!
   (interactive "P")
   (dix-with-no-case-fold
       (let (sdefs)
