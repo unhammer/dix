@@ -3,7 +3,7 @@
 ;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.3.2
+;; Version: 0.3.3
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
 ;; Package-Requires: ((cl-lib "0.5"))
@@ -115,7 +115,7 @@
 
 ;;; Code:
 
-(defconst dix-version "0.3.2")
+(defconst dix-version "0.3.3")
 
 (require 'nxml-mode)
 (require 'cl-lib)
@@ -162,8 +162,28 @@ Entering dix-mode calls the hook dix-mode-hook.
   :lighter    " dix"
   :keymap     dix-mode-map
   :require    nxml-mode
+
+  (when (member (file-name-extension (buffer-file-name)) '("lrx" "metalrx"))
+    (font-lock-add-keywords nil
+                    '(("<match[^>]*\\(></match>\\)"
+                       . (progn         ; based on rng-mark-error
+                           (dix-mark-error "Use /> instead of ></match>"
+                                        (match-beginning 1)
+                                        (match-end 1))
+                           nil)))))
   (set-syntax-table dix-mode-syntax-table))
 
+(defun dix-mark-error (message beg end)
+  "Create an error overlay with the dix-error category.
+MESSAGE, BEG and END as in `rng-mark-error'."
+  (let ((overlay
+         (make-overlay beg end nil t
+                       (= beg end))))
+    (overlay-put overlay 'priority beg)
+    (overlay-put overlay 'category 'dix-error)
+    (overlay-put overlay 'help-echo message)))
+
+(put 'dix-error 'face 'rng-error)
 
 ;;;============================================================================
 ;;;
