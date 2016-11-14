@@ -163,6 +163,14 @@ Entering dix-mode calls the hook dix-mode-hook.
   :keymap     dix-mode-map
   :require    nxml-mode
 
+  (when (member (file-name-extension (buffer-file-name)) '("dix" "metadix"))
+    (font-lock-add-keywords nil
+                    '(("<[lr]>\\(?:[^<]\\|<b/>\\)*\\( \\)"
+                       . (progn         ; based on rng-mark-error
+                           (dix-mark-error "Use <b/> instead of literal space"
+                                        (match-beginning 1)
+                                        (match-end 1))
+                           nil)))))
   (when (member (file-name-extension (buffer-file-name)) '("lrx" "metalrx"))
     (font-lock-add-keywords nil
                     '(("<match[^>]*\\(></match>\\)"
