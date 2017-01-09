@@ -3,7 +3,7 @@
 ;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.3.3
+;; Version: 0.3.4
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
 ;; Package-Requires: ((cl-lib "0.5"))
@@ -115,7 +115,7 @@
 
 ;;; Code:
 
-(defconst dix-version "0.3.3")
+(defconst dix-version "0.3.4")
 
 (require 'nxml-mode)
 (require 'cl-lib)
@@ -179,7 +179,8 @@ Entering dix-mode calls the hook dix-mode-hook.
                                         (match-beginning 1)
                                         (match-end 1))
                            nil)))))
-  (set-syntax-table dix-mode-syntax-table))
+  (set-syntax-table dix-mode-syntax-table)
+  (dix-imenu-setup))
 
 (defun dix-mark-error (message beg end)
   "Create an error overlay with the dix-error category.
@@ -350,7 +351,8 @@ stop on finding another `ELTNAME' element."
     (container "var" "clip")
     (sentence "let" "out" "choose" "modify-case" "call-macro" "append" "reject-current-rule")
     (value "b" "clip" "lit" "lit-tag" "var" "get-case-from" "case-of" "concat" "lu" "mlu" "chunk")
-    (stringvalue "clip" "lit" "var" "get-case-from" "case-of"))
+    (stringvalue "clip" "lit" "var" "get-case-from" "case-of")
+    (choice "when" "otherwise"))
   "From transfer.dtd; interchunk/postchunk TODO.")
 
 (defvar dix-transfer-elements
@@ -374,7 +376,8 @@ stop on finding another `ELTNAME' element."
     (modify-case stringvalue container)
     (concat value)
     (lu value)
-    (tag value))
+    (tag value)
+    (choose choice))
   "From transfer.dtd; interchunk/postchunk TODO.")
 
 (defun dix-transfer-allowed-children (parent)
@@ -1294,6 +1297,10 @@ wish."
 
 (defvar dix-search-substring nil
   "Set by `dix-word-search-forward'.")
+
+(defun dix-is-transfer ()
+  "True if buffer file name transfer-like (rather than dix)."
+  (string-match-p "[.]..+-..+[.]t[0-9]x" (buffer-file-name)))
 
 (defun dix-is-bidix ()
   "True if buffer file name bidix-like (rather than monodix)."
@@ -2239,6 +2246,29 @@ if REVERSE, treat the word as target instead."
                (search-forward (format "lemma=\"%s\"" w)))))
       ;; Ie. don't move point if search failed
       (goto-char p))))
+
+;;;============================================================================
+;;;
+;;; Imenu
+;;;
+
+(defun dix-imenu-setup ()
+  "Set up `imenu-generic-expression' for running `imenu'."
+  (cond ((dix-is-transfer)
+         (setq imenu-generic-expression
+               '((nil "<def-macro\\s +n=\"\\([^\"]*\\)\"" 1)
+                 ("Rule"   "<rule\\s +comment=\"\\([^\"]*\\)\"" 1)
+                 ("Cat"   "<def-cat\\s +n=\"\\([^\"]*\\)\"" 1)
+                 ("Attr"   "<def-attr\\s +n=\"\\([^\"]*\\)\"" 1)
+                 ("Var"   "<def-var\\s +n=\"\\([^\"]*\\)\"" 1)
+                 ("List"   "<def-list\\s +n=\"\\([^\"]*\\)\"" 1)
+                 )))
+        (t
+         (setq imenu-generic-expression
+               '((nil "<pardef\\s +n=\"\\([^\"]*\\)\"" 1)
+                 ("Sdef"   "<sdef\\s +n=\"\\([^\"]*\\)\"" 1)
+                 )))))
+
 
 ;;;============================================================================
 ;;;
