@@ -270,6 +270,7 @@ MESSAGE, BEG and END as in `rng-mark-error'."
      (let ((ret ,@body))
        (setq nxml-sexp-element-flag old-sexp-element-flag)
        ret)))
+
 (defmacro dix-with-no-case-fold (&rest body)
   "Execute `BODY' with `case-fold-search' set to nil."
   (declare (indent 1) (debug t))
@@ -602,6 +603,12 @@ Used by `dix-next'.")
 They'll not be skipped if they have interesting attributes as defined by
 `dix-interesting', however.")
 ;;; TODO: skip <[lr]><g><b/> and go to nearest CDATA in e.g. <l><g><b/>for</g></l>
+
+(defmacro dix-filter (pred lst)
+  "Test PRED on each elt of LST, removing non-true values."
+  `(delq nil
+         (mapcar (lambda (elt) (when (funcall ,pred elt) elt))
+                 ,lst)))
 
 (defun dix-nearest (pivot backward &rest args)
   "Find the element numerically nearest PIVOT.
@@ -2190,12 +2197,6 @@ DIR (defaults to `default-directory')."
 
 (defvar dix-iso639-3-metacodes '(("nor" "nno" "nob") ("fit" "swe"))
   "Alist of metalanguages to individual languages.")
-
-(defmacro dix-filter (pred lst)
-  "Test PRED on each elt of LST, removing non-true values."
-  `(delq nil
-         (mapcar (lambda (elt) (when (funcall ,pred elt) elt))
-                 ,lst)))
 
 (defun dix-files-other-ext (ext &optional reverse)
   "Find the source file(s) with extension EXT corresponding to this file.
