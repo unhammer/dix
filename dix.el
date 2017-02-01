@@ -1,9 +1,9 @@
-;;; dix.el --- minor mode for editing Apertium XML dictionary files
+;;; dix.el --- minor mode for editing Apertium XML dictionary files  -*- lexical-binding: t; coding: utf-8 -*-
 
-;; Copyright (C) 2009-2016 Kevin Brubeck Unhammer
+;; Copyright (C) 2009-2017 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.3.5
+;; Version: 0.4.0
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
 ;; Package-Requires: ((cl-lib "0.5"))
@@ -115,7 +115,7 @@
 
 ;;; Code:
 
-(defconst dix-version "0.3.5")
+(defconst dix-version "0.4.0")
 
 (require 'nxml-mode)
 (require 'cl-lib)
@@ -487,14 +487,14 @@ meaning commented out pardefs may be suggested as well."
 	   pdnames)
       (save-excursion
 	(while (re-search-backward par-rex bound-above 'noerror)
-	  (add-to-list 'pdnames (match-string-no-properties 1))))
+	  (cl-pushnew (match-string-no-properties 1) pdnames :test #'equal)))
       (save-excursion
 	(while (re-search-forward par-rex bound-below 'noerror)
-	  (add-to-list 'pdnames (match-string-no-properties 1))))
+	  (cl-pushnew (match-string-no-properties 1) pdnames :test #'equal)))
       (save-excursion
 	(goto-char pardefs-end)
 	(while (re-search-backward pardef-rex nil 'noerror)
-	  (add-to-list 'pdnames (match-string-no-properties 1))))
+	  (cl-pushnew (match-string-no-properties 1) pdnames :test #'equal)))
       (nreverse pdnames))))
 
 (defun dix-pardef-suggest-for (lemma)
@@ -1212,7 +1212,7 @@ so far there are never slr's over 10 anyway..."
 If REVERSE, sorts in opposite order."
   (interactive "P")
   (save-excursion
-    (let (beg end)
+    (let (beg)
       (dix-up-to "pardef" "pardefs")
       ;; get beginning of first elt within pardef:
       (setq beg (save-excursion (goto-char (nxml-token-after))
@@ -1308,6 +1308,10 @@ wish."
 (defun dix-is-transfer ()
   "True if buffer file name transfer-like (rather than dix)."
   (string-match-p "[.]..+-..+[.]t[0-9]x" (buffer-file-name)))
+
+(defun dix-is-lrx ()
+  "True if buffer file name lrx-like (rather than dix)."
+  (string-match-p "[.]..+-..+[.]lrx" (buffer-file-name)))
 
 (defun dix-is-bidix ()
   "True if buffer file name bidix-like (rather than monodix)."
@@ -1413,6 +1417,14 @@ Moves STEP steps (default 1).  See also `dix-next'."
 		  (< (match-beginning 0) origin))
 	(setq pdname (match-string-no-properties 1)))
       pdname)))
+
+(defun dix-find-definition ()
+  "Go to definition of thing at point."
+  (interactive)
+  (cond ((dix-is-transfer)
+         (call-interactively #'imenu))
+        (t
+         (dix-goto-pardef))))
 
 (defun dix-goto-pardef (&optional pdname)
   "Call from an entry to go to its pardef.
@@ -2005,7 +2017,7 @@ by (sixth (file-attributes dix-monodix-left)).")
 (defvar dix-monodix-left "/l/n/nno/apertium-nno.nno.dix"
   "Set to the default monodix you want when running `dix-expand'.")
 
-(defun dix-expansion-sentinel (proc change-str)
+(defun dix-expansion-sentinel (_proc change-str)
   (when (string= "finished\n" change-str)
     (message "Expansion updated")
     (kill-buffer "*lt-expand*")))
@@ -2076,7 +2088,7 @@ on a previously narrowed buffer (the default behaviour for
                             (goto-char (point-min))
                             (while (re-search-forward
                                     "<sdef[^>]*n=\"\\([^\"]*\\)\"" nil 'noerror)
-                              (add-to-list 'sdefs (match-string-no-properties 1)))))
+                              (cl-pushnew (match-string-no-properties 1) sdefs :test #'equal))))
         (let ((sdef (completing-read "sdef/POS-tag: " sdefs nil 'require-match))
               id start end sections)
           (save-excursion ;; find all sections
@@ -2087,7 +2099,7 @@ on a previously narrowed buffer (the default behaviour for
                                 (setq id (match-string-no-properties 1))
                                 (setq end (re-search-forward "</section>"))
                                 (if (search-backward (concat "<s n=\"" sdef "\"") start 'noerror)
-                                    (add-to-list 'sections (list id start end))))))
+                                    (cl-pushnew (list id start end) sections :test #'equal)))))
           ;; narrow to region between first and last occurrence of sdef in chosen section
           (let* ((ids (mapcar 'car sections))
                  (id (if (cdr sections)
@@ -2146,7 +2158,7 @@ Used by `dix-grep-all'.")
 
 
 (defun dix-nearest-greppable ()
-  (let* ((token-end (nxml-token-before))
+  (let* ((_token-end (nxml-token-before))
          (greppable (save-excursion
                       (let ((dix-interesting dix-greppable))
                         (dix-next)
@@ -2167,7 +2179,7 @@ the current file is excluded from the results."
   (interactive "P")
   (let* ((greppable (dix-nearest-greppable))
          ;; TODO: if par/pardef, want to search only par/pardef, and so on
-         (found-in (car greppable))
+         (_found-in (car greppable))
          (needle (if (and transient-mark-mode mark-active)
                      (buffer-substring (region-beginning)
                                        (region-end))
@@ -2301,7 +2313,7 @@ users."
   (define-key dix-mode-map (kbd "C-c p") #'dix-add-par)
   (define-key dix-mode-map (kbd "C-c C") #'dix-copy)
   (define-key dix-mode-map (kbd "C-c S") #'dix-sort-pardef)
-  (define-key dix-mode-map (kbd "C-c G") #'dix-goto-pardef)
+  (define-key dix-mode-map (kbd "C-c G") #'dix-find-definition)
   (define-key dix-mode-map (kbd "C-c n") #'dix-goto-rule-number)
   (define-key dix-mode-map (kbd "C-c g") #'dix-guess-pardef)
   (define-key dix-mode-map (kbd "C-c x") #'dix-xmlise-using-above-elt)
@@ -2322,7 +2334,7 @@ users."
 (define-key dix-mode-map (kbd "C-c C-y") #'dix-copy-yank)
 (define-key dix-mode-map (kbd "M-g r") #'dix-goto-rule-number)
 (define-key dix-mode-map (kbd "C-c M-.") #'dix-goto-lrx)
-(define-key dix-mode-map (kbd "M-.") #'dix-goto-pardef)
+(define-key dix-mode-map (kbd "M-.") #'dix-find-definition)
 (define-key dix-mode-map (kbd "M-,") #'pop-to-mark-command)
 
 (define-prefix-command 'dix-replace-prefix)
