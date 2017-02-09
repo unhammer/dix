@@ -171,7 +171,15 @@ Entering dix-mode calls the hook dix-mode-hook.
                                         (match-beginning 1)
                                         (match-end 1))
                            nil)))))
-  (when (member (file-name-extension (buffer-file-name)) '("lrx" "metalrx"))
+  (when (dix-is-transfer)
+    (font-lock-add-keywords nil
+                    '(("<lit-tag v=\"\"/>"
+                       . (progn         ; based on rng-mark-error
+                           (dix-mark-error "Use lit instead of lit-tag to match empty strings"
+                                        (match-beginning 0)
+                                        (match-end 0))
+                           nil)))))
+  (when (dix-is-lrx)
     (font-lock-add-keywords nil
                     '(("<match[^>]*\\(></match>\\)"
                        . (progn         ; based on rng-mark-error
@@ -1311,7 +1319,7 @@ wish."
 
 (defun dix-is-lrx ()
   "True if buffer file name lrx-like (rather than dix)."
-  (string-match-p "[.]..+-..+[.]lrx" (buffer-file-name)))
+  (string-match-p "[.]..+-..+[.]\\(?:meta\\)?lrx" (buffer-file-name)))
 
 (defun dix-is-bidix ()
   "True if buffer file name bidix-like (rather than monodix)."
