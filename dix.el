@@ -993,32 +993,34 @@ add an RL restriction to the copy."
 Optional prefix argument REMOVE-LEX removes the contents of the
 lm attribute and <i> or <p> elements."
   (interactive "P")
-  ;; todo: find the first one of these: list-item, e, def-var, sdef, attr-item, cat-item, clip, pattern-item,
-  (dix-up-to "e" "pardef")
-  (let ((beg (or (re-search-backward "^[\t ]*" (line-beginning-position) 'noerror) (point)))
-	(origend (1+ (save-excursion
-		       (goto-char (nxml-scan-element-forward (point)))
-		       (or (re-search-forward "[\t ]*$" (line-end-position) 'noerror) (point))))))
-    (goto-char origend)
-    (insert (buffer-substring-no-properties beg origend))
-    (let ((copyend (point)))
-      (when remove-lex
-	(save-excursion
-	  (goto-char origend)
-	  (save-restriction
-	    (narrow-to-region origend copyend)
-	    (while (re-search-forward "lm=\\\"[^\\\"]*\\\"" nil 'noerror 1)
-	      (replace-match "lm=\"\""))
-	    (goto-char (point-min))
-	    (while (re-search-forward "<i>.*</i>" nil 'noerror 1)
-	      (replace-match "<i></i>"))
-	    (goto-char (point-min))
-	    (while (re-search-forward "<p>.*</p>" nil 'noerror 1)
-	      (replace-match "<p><l></l><r></r></p>")))))
-      ;; Put point at next useful spot, but don't move past this element:
+  ;; TODO: find the first one of these: list-item, e, def-var, sdef, attr-item, cat-item, clip, pattern-item,
+  (if (not (dix-is-dix))
+      (message "dix-copy only implemented for .dix/.metadix files, sorry.")
+    (dix-up-to "e" "pardef")
+    (let ((beg (or (re-search-backward "^[\t ]*" (line-beginning-position) 'noerror) (point)))
+          (origend (1+ (save-excursion
+                         (goto-char (nxml-scan-element-forward (point)))
+                         (or (re-search-forward "[\t ]*$" (line-end-position) 'noerror) (point))))))
       (goto-char origend)
-      (dix-next)
-      (if (> (point) copyend) (goto-char origend)))))
+      (insert (buffer-substring-no-properties beg origend))
+      (let ((copyend (point)))
+        (when remove-lex
+          (save-excursion
+            (goto-char origend)
+            (save-restriction
+              (narrow-to-region origend copyend)
+              (while (re-search-forward "lm=\\\"[^\\\"]*\\\"" nil 'noerror 1)
+                (replace-match "lm=\"\""))
+              (goto-char (point-min))
+              (while (re-search-forward "<i>.*</i>" nil 'noerror 1)
+                (replace-match "<i></i>"))
+              (goto-char (point-min))
+              (while (re-search-forward "<p>.*</p>" nil 'noerror 1)
+                (replace-match "<p><l></l><r></r></p>")))))
+        ;; Put point at next useful spot, but don't move past this element:
+        (goto-char origend)
+        (dix-next)
+        (if (> (point) copyend) (goto-char origend))))))
 
 
 
@@ -1324,6 +1326,10 @@ wish."
 (defun dix-is-bidix ()
   "True if buffer file name bidix-like (rather than monodix)."
   (string-match-p "[.]..+-..+[.]dix" (buffer-file-name)))
+
+(defun dix-is-dix ()
+  "True if buffer file name bidix-like (rather than monodix)."
+  (string-match-p ".+[.]\\(?:meta\\)?dix" (buffer-file-name)))
 
 (defun dix-word-search-forward (&optional whole-word)
   "Incremental word-search for dix files.
