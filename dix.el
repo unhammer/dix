@@ -1436,7 +1436,10 @@ Moves STEP steps (default 1).  See also `dix-next'."
   "Go to definition of thing at point."
   (interactive)
   (cond ((dix-is-transfer)
-         (call-interactively #'imenu))
+         (let ((sym (thing-at-point 'symbol)))
+           (if (assoc sym (imenu--make-index-alist))
+               (imenu sym)
+             (call-interactively #'imenu))))
         (t
          (dix-goto-pardef))))
 
@@ -2284,16 +2287,16 @@ if REVERSE, treat the word as target instead."
   (cond ((dix-is-transfer)
          (setq imenu-generic-expression
                '((nil "<def-macro\\s +n=\"\\([^\"]*\\)\"" 1)
-                 ("Rule"   "<rule\\s +comment=\"\\([^\"]*\\)\"" 1)
-                 ("Cat"   "<def-cat\\s +n=\"\\([^\"]*\\)\"" 1)
-                 ("Attr"   "<def-attr\\s +n=\"\\([^\"]*\\)\"" 1)
-                 ("Var"   "<def-var\\s +n=\"\\([^\"]*\\)\"" 1)
-                 ("List"   "<def-list\\s +n=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<rule\\s +comment=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<def-cat\\s +n=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<def-attr\\s +n=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<def-var\\s +n=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<def-list\\s +n=\"\\([^\"]*\\)\"" 1)
                  )))
         (t
          (setq imenu-generic-expression
                '((nil "<pardef\\s +n=\"\\([^\"]*\\)\"" 1)
-                 ("Sdef"   "<sdef\\s +n=\"\\([^\"]*\\)\"" 1)
+                 (nil   "<sdef\\s +n=\"\\([^\"]*\\)\"" 1)
                  )))))
 
 
