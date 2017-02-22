@@ -1432,6 +1432,9 @@ Moves STEP steps (default 1).  See also `dix-next'."
 	(setq pdname (match-string-no-properties 1)))
       pdname)))
 
+(declare-function imenu--make-index-alist "imenu" (&optional noerror))
+(autoload #'imenu--make-index-alist "imenu")
+
 (defun dix-find-definition ()
   "Go to definition of thing at point."
   (interactive)
