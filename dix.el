@@ -287,6 +287,10 @@ MESSAGE, BEG and END as in `rng-mark-error'."
      ,@body
      (setq case-fold-search old-case-fold-search)))
 
+(defun dix--completing-read (&rest args)
+  "Call `dix-completing-read-function' on ARGS."
+  (apply dix-completing-read-function args))
+
 (defvar dix-parse-bound 10000
   "Max amount of chars (not lines) to parse through in dix xml operations.
 Useful since dix tend to get huge.  Relative bound.  Decrease the
@@ -2109,7 +2113,7 @@ on a previously narrowed buffer (the default behaviour for
                             (while (re-search-forward
                                     "<sdef[^>]*n=\"\\([^\"]*\\)\"" nil 'noerror)
                               (cl-pushnew (match-string-no-properties 1) sdefs :test #'equal))))
-        (let ((sdef (completing-read "sdef/POS-tag: " sdefs nil 'require-match))
+        (let ((sdef (dix--completing-read "sdef/POS-tag: " sdefs nil 'require-match))
               id start end sections)
           (save-excursion ;; find all sections
             (save-restriction (widen)
@@ -2123,8 +2127,8 @@ on a previously narrowed buffer (the default behaviour for
           ;; narrow to region between first and last occurrence of sdef in chosen section
           (let* ((ids (mapcar 'car sections))
                  (id (if (cdr sections)
-                         (completing-read "Section:" ids nil 'require-match
-                                          (if (cdr ids) nil (car ids)))
+                         (dix--completing-read "Section:" ids nil 'require-match
+                                               (if (cdr ids) nil (car ids)))
                        (caar sections)))
                  (section (assoc id sections)))
             (unless no-widen (widen))
@@ -2155,6 +2159,11 @@ Can be useful when sorting out entries."
   "String list of dictionary files to grep with `dix-grep-all'.
 Can contain shell globs."
   :type '(list string)
+  :group 'dix)
+
+(defcustom dix-completing-read-function completing-read-function
+  "Like `completing-read-function', but only used in dix functions."
+  :type 'function
   :group 'dix)
 
 (defvar dix-greppable
@@ -2269,8 +2278,8 @@ if REVERSE, treat the word as target instead."
          (reverse (if (eq 'l tag) reverse (not reverse)))
          (files (dix-files-other-ext "lrx" reverse))
          (file (if (cdr files)
-                   (completing-read "File: " files nil t
-                                    (if (cdr files) nil (car files)))
+                   (dix--completing-read "File: " files nil t
+                                         (if (cdr files) nil (car files)))
                  (car files))))
     ;; TODO: might also want to filter lists by those that have that lemma?
     (find-file file)
@@ -2320,10 +2329,10 @@ If interactive or POSSIBLE-FILES is nil, fallback to
   (interactive (let ((possible (dix--parallel-lang-modules
                                 (buffer-file-name))))
                  (list
-                  (completing-read "Language: "
-                                   possible
-                                   nil
-                                   'require-match)
+                  (dix--completing-read "Language: "
+                                        possible
+                                        nil
+                                        'require-match)
                   possible)))
   (let ((possible-files (or possible-files
                             (dix--parallel-lang-modules
