@@ -2280,6 +2280,58 @@ if REVERSE, treat the word as target instead."
       ;; Ie. don't move point if search failed
       (goto-char p))))
 
+(defun dix--match-data-highest-parens ()
+  "Return the highest parenthesized expression of the previous search.
+Usable as input to e.g. `replace-match' or `match-string' after a
+`string-match'."
+  (/ (- (length (match-data t)) 2) 2))
+
+(defun dix--parallel-lang-modules (file)
+  "Return an alist of files with the same path as FILE, except for language code."
+  (when file
+    (let* ((dir (file-name-directory file))
+           (base (file-name-base file))
+           (ext (file-name-extension file))
+           (l-re "[a-z]\\{2,3\\}")
+           (p-re (concat l-re "-" l-re))
+           (re (format "/langs/\\(%s\\)/\\|/apertium-\\(%s\\)/\\|/apertium-\\(%s\\)/"
+                       l-re l-re p-re))
+           (m (string-match re dir)))
+      (when m
+        (let* ((num (dix--match-data-highest-parens))
+               (beg (match-beginning num))
+               (lang (match-string num dir))
+               (glob (format "%s%s.%s"
+                             (replace-match "*" t t dir num)
+                             (replace-regexp-in-string (concat lang ".*") "*" base t t)
+                             ext))
+               (expanded (file-expand-wildcards glob))
+               (key-re (format "/.*?\\(?:apertium-%s\\([.]%s\\)\\)?.*"
+                               p-re p-re)))
+          (mapcar (lambda (p)
+                    (cons (replace-regexp-in-string key-re "\\1" (substring p beg))
+                          p))
+                  expanded))))))
+
+(defun dix-other-language (language &optional possible-files)
+  "Find the corresponding file in a different LANGUAGE.
+If interactive or POSSIBLE-FILES is nil, fallback to
+`dix--parallel-lang-modules'."
+  (interactive (let ((possible (dix--parallel-lang-modules
+                                (buffer-file-name))))
+                 (list
+                  (completing-read "Language: "
+                                   possible
+                                   nil
+                                   'require-match)
+                  possible)))
+  (let ((possible-files (or possible-files
+                            (dix--parallel-lang-modules
+                             (buffer-file-name)))))
+    (if (and possible-files language)
+        (find-file (cdr (assoc language possible-files)))
+      (message "No matching other language/files"))))
+
 ;;;============================================================================
 ;;;
 ;;; Imenu
@@ -2352,6 +2404,7 @@ users."
 (define-key dix-mode-map (kbd "C-c <right>") #'dix-RL-restriction-copy)
 (define-key dix-mode-map (kbd "C-c +") #'dix-copy)
 (define-key dix-mode-map (kbd "C-c C-y") #'dix-copy-yank)
+(define-key dix-mode-map (kbd "M-g o") #'dix-other-language)
 (define-key dix-mode-map (kbd "M-g r") #'dix-goto-rule-number)
 (define-key dix-mode-map (kbd "C-c M-.") #'dix-goto-lrx)
 (define-key dix-mode-map (kbd "M-.") #'dix-find-definition)
