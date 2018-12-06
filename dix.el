@@ -1895,7 +1895,6 @@ to the regular `delete-backward-char'."
 	   (insert-char ?> 1))
 	  (t (nxml-up-element)))))
 
-
 (defun dix-xmlise-using-above-elt ()
   "Simple yasnippet-like function to turn a plain list
 into <e> entries. Write a bunch of words, one word per line,
@@ -2024,7 +2023,10 @@ lahka:slags
 		     inlist)))
       ;; Delete the old inlist, and insert the new outlist:
       (delete-region inlist-start inlist-end)
-      (insert (apply #'concat outlist)))))
+      (insert
+       (if (eq (length outlist) 1)
+           (string-trim (car outlist))
+         (apply #'concat outlist))))))
 
 (defun dix-trim-string (s)
   "Trim leading and trailing spaces, tabs and newlines off S."
