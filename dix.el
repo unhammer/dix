@@ -2270,13 +2270,16 @@ means we can have multiple files per direction."
 
 (defun dix-goto-lrx (&optional reverse)
   "Find the bidix word at point in the corresponding lrx-file.
+On no match, insert a default rule for this pair.
 Assumes we want the file where word would be the source language;
 if REVERSE, treat the word as target instead."
   (interactive "P")
   (let* ((tr (dix-l/r-at-point-reg))
          (tag (car tr))
-         (w (substring-no-properties
-             (dix-first-cdata-of-elt (cadr tr))))
+         (lm-l (dix-l-word-at-point))
+         (lm-r (dix-r-word-at-point))
+         (w         (if (eq 'l tag) lm-l lm-r))
+         (w-reverse (if (eq 'l tag) lm-r lm-l))
          (reverse (if (eq 'l tag) reverse (not reverse)))
          (files (dix-files-other-ext "lrx" reverse))
          (file (if (cdr files)
@@ -2287,9 +2290,20 @@ if REVERSE, treat the word as target instead."
     (find-file file)
     (let ((p (save-excursion
                (goto-char (point-min))
-               (search-forward (format "lemma=\"%s\"" w)))))
-      ;; Ie. don't move point if search failed
-      (goto-char p))))
+               (search-forward (format "lemma=\"%s\"" w) nil 'noerror))))
+      (if p
+          (goto-char p)
+        (widen)
+        (goto-char (point-max))
+        (nxml-backward-down-element 1)
+        (insert (format
+                 "  <rule><match lemma=\"%s\" tags=\"%s\"><select lemma=\"%s\"/></match></rule>\n"
+                 w
+                 "*"                    ; TODO
+                 w-reverse))
+        (message "Couldn't find a match; inserted default rule for %s→%s"
+                 w
+                 w-reverse)))))
 
 (defun dix--match-data-highest-parens ()
   "Return the highest parenthesized expression of the previous search.
