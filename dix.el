@@ -2268,6 +2268,15 @@ means we can have multiple files per direction."
                                          (funcall with-metacodes trg)))
                                (funcall with-metacodes src))))))
 
+(defun dix--first-s-tag-of-e ()
+  "Find the first <s n=\"tag\"/> tag of <e> element at point.
+Return nil on no match."
+  (save-excursion
+    (dix-up-to "e" "section")
+    (let ((end (save-excursion (nxml-forward-element) (point))))
+      (when (re-search-forward "<s n=\"\\([^\"]*\\)" end 'noerror)
+        (match-string-no-properties 1)))))
+
 (defun dix-goto-lrx (&optional reverse)
   "Find the bidix word at point in the corresponding lrx-file.
 On no match, insert a default rule for this pair.
@@ -2281,6 +2290,7 @@ if REVERSE, treat the word as target instead."
          (w         (if (eq 'l tag) lm-l lm-r))
          (w-reverse (if (eq 'l tag) lm-r lm-l))
          (reverse (if (eq 'l tag) reverse (not reverse)))
+         (s-tag (dix--first-s-tag-of-e))
          (files (dix-files-other-ext "lrx" reverse))
          (file (if (cdr files)
                    (dix--completing-read "File: " files nil t
@@ -2299,7 +2309,7 @@ if REVERSE, treat the word as target instead."
         (insert (format
                  "  <rule><match lemma=\"%s\" tags=\"%s\"><select lemma=\"%s\"/></match></rule>\n"
                  w
-                 "*"                    ; TODO
+                 (if s-tag (concat s-tag ".*") "*")
                  w-reverse))
         (message "Couldn't find a match; inserted default rule for %s→%s"
                  w
