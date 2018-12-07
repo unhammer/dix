@@ -2268,13 +2268,16 @@ means we can have multiple files per direction."
                                          (funcall with-metacodes trg)))
                                (funcall with-metacodes src))))))
 
-(defun dix--first-s-tag-of-e ()
+(defun dix--guess-bidix-mainpos-of-e ()
   "Find the first <s n=\"tag\"/> tag of <e> element at point.
-Return nil on no match."
+Return nil on no match.
+If no <s>, may try to guess from <par>."
   (save-excursion
     (dix-up-to "e" "section")
     (let ((end (save-excursion (nxml-forward-element) (point))))
-      (when (re-search-forward "<s n=\"\\([^\"]*\\)" end 'noerror)
+      (when (or
+             (save-excursion (re-search-forward "<s n=\"\\([^\"]*\\)" end 'noerror))
+             (save-excursion (re-search-forward "<par n=\":?\\([^\"_]*\\)" end 'noerror)))
         (match-string-no-properties 1)))))
 
 (defun dix-goto-lrx (&optional reverse)
@@ -2290,7 +2293,7 @@ if REVERSE, treat the word as target instead."
          (w         (if (eq 'l tag) lm-l lm-r))
          (w-reverse (if (eq 'l tag) lm-r lm-l))
          (reverse (if (eq 'l tag) reverse (not reverse)))
-         (s-tag (dix--first-s-tag-of-e))
+         (s-tag (dix--guess-bidix-mainpos-of-e))
          (files (dix-files-other-ext "lrx" reverse))
          (file (if (cdr files)
                    (dix--completing-read "File: " files nil t
