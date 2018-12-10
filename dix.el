@@ -1,12 +1,12 @@
-;;; dix.el --- minor mode for editing Apertium XML dictionary files  -*- lexical-binding: t; coding: utf-8 -*-
+;;; dix.el --- Apertium XML editing minor mode -*- lexical-binding: t -*-
 
-;; Copyright (C) 2009-2017 Kevin Brubeck Unhammer
+;; Copyright (C) 2009-2018 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
-;; Version: 0.4.0
+;; Version: 0.4.1
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
-;; Package-Requires: ((cl-lib "0.5"))
+;; Package-Requires: ((cl-lib "0.5") (emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -115,11 +115,12 @@
 
 ;;; Code:
 
-(defconst dix-version "0.4.0")
+(defconst dix-version "0.4.1")
 
 (require 'nxml-mode)
 (require 'cl-lib)
 (require 'easymenu)
+(require 'subr-x)
 (eval-when-compile (require 'align))
 
 ;;;============================================================================
@@ -633,9 +634,13 @@ PIVOT, otherwise only higher."
       (when OK (apply nearest OK)))))
 
 (defun dix-nearest-interesting (attributes pivot backward interest)
-  "Find the position of the nearest member of list INTEREST which
-is also a member of ATTRIBUTES (in the format of
-`xmltok-attributes') but not crossing PIVOT."
+  "Find the nearest \"interesting\" element.
+
+This will return the position of the nearest member of list
+INTEREST which is also a member of ATTRIBUTES (in the format of
+`xmltok-attributes') but not crossing PIVOT.  If BACKWARD, we we
+want only elements of ARGS that are lower than PIVOT, otherwise
+only higher."
   (apply 'dix-nearest pivot backward
 	 (mapcar (lambda (attname)
 		   (dix-attrib-start attributes attname))
@@ -695,7 +700,7 @@ TODO: handle pardef entries too; make non-recursive."
 pardefs, eg. '(\"en\" \"ing\" \"s\"), and the value is a list of
 the pardef names containing these suffixes.
 
-Argument `partype' is eg. adj, vblex, vblex_adj, ..., and is the
+Argument PARTYPE is eg. adj, vblex, vblex_adj, ..., and is the
 string following \"__\", thus assumes you keep to the Apertium
 standard.  Also assumes there is no \"_\" before \"__\" in pardef
 names."
@@ -719,14 +724,13 @@ keys are symbols formed from the string `partype' (see
 (make-variable-buffer-local 'dix-suffix-maps)
 
 (defun dix-get-pardefs (sufflist suffmap)
-  "Get the list of pardefs in SUFFMAP which have the list of
-suffixes SUFFLIST.  See `dix-compile-suffix-map' for more
-information."
+  "Get the list of pardefs in SUFFMAP which have the list of suffixes SUFFLIST.
+
+See `dix-compile-suffix-map' for more information."
   (gethash (sort sufflist 'string-lessp) suffmap))
 
 (defun dix-compile-sorted-suffix-list ()
-  "Used for generating lookup keys for `dix-compile-suffix-map'
-and `dix-get-pardefs'."
+  "Make lookup keys for `dix-compile-suffix-map' and `dix-get-pardefs'."
   (save-excursion
     (let (sufflist)
       (condition-case nil
@@ -796,23 +800,29 @@ edit the paths, and add the path to the list
 ;;;
 ;;; Alignment
 ;;;
-(defcustom dix-rp-align-column 28 "Column to align pardef <r> elements to with `align'."
+(defcustom dix-rp-align-column 28
+  "Column to align pardef <r> elements to with `align'."
   :type 'integer
   :group 'dix)
-(defcustom dix-rb-align-column 44 "Column to align bidix <r> elements to with `align'."
+(defcustom dix-rb-align-column 44
+  "Column to align bidix <r> elements to with `align'."
   :type 'integer
   :group 'dix)
-(defcustom dix-i-align-column 25 "Column to align <i> elements to with `align'."
+(defcustom dix-i-align-column 25
+  "Column to align <i> elements to with `align'."
   :type 'integer
   :group 'dix)
-(defcustom dix-ep-align-column 2 "Column to align pardef <e> elements to with `align'.
+(defcustom dix-ep-align-column 2
+  "Column to align pardef <e> elements to with `align'.
 Not yet implemented, only used by `dix-LR-restriction-copy'."
   :type 'integer
   :group 'dix)
-(defcustom dix-pp-align-column 12 "Column to align pardef <p> elements to with `align'."
+(defcustom dix-pp-align-column 12
+  "Column to align pardef <p> elements to with `align'."
   :type 'integer
   :group 'dix)
-(defcustom dix-pb-align-column 10 "Column to align bidix <p> (and <re>) elements to with `align'."
+(defcustom dix-pb-align-column 10
+  "Column to align bidix <p> (and <re>) elements to with `align'."
   :type 'integer
   :group 'dix)
 
@@ -973,9 +983,8 @@ Optional argument DIR is a string, either \"\", \"LR\" or
              ((looking-at "<p\\|<re") (indent-to dix-pb-align-column))))))
 
 (defun dix-LR-restriction-copy (&optional RL)
-  "Make a copy of the Apertium element we're looking at, and add
-an LR restriction to the copy.  A prefix argument makes it an RL
-restriction."
+  "Make an LR-restricted copy of the dix element we're looking at.
+A prefix argument makes it an RL restriction."
   (interactive "P")
   (save-excursion
     (dix-copy)
@@ -987,8 +996,7 @@ restriction."
   (nxml-down-element 1) (goto-char (nxml-token-after)))
 
 (defun dix-RL-restriction-copy ()
-  "Make a copy of the Apertium element we're looking at, and
-add an RL restriction to the copy."
+  "Make an RL-restricted copy of the dix element we're looking at."
   (interactive)
   (dix-LR-restriction-copy 'RL))
 
@@ -1029,8 +1037,8 @@ lm attribute and <i> or <p> elements."
 
 
 (defun dix-copy-yank ()
-  "Make a copy of the Apertium element we're looking at, and yank
-into the beginning of the lm and <i>."
+  "Make a copy of the dix element we're looking at, and yank into
+the beginning of the lm and <i>."
   ;; TODO: remove old data
   (interactive)
   (dix-copy)
@@ -1206,10 +1214,11 @@ Note: will not work if you have several <e>'s per line!"
 		 (concat l slr r))))))))))
 
 (defun dix-get-slr (attributes)
-  "ATTRIBUTES is of the format of `xmltok-attributes', returns
-the string value of the slr attribute if it's set, otherwise
-\"0\". Should probably be padded since we use it for sorting, but
-so far there are never slr's over 10 anyway..."
+  "Give the string value of the slr attribute if it's set, else \"0\".
+
+ATTRIBUTES is of the format of `xmltok-attributes'.  Should
+probably be padded since we use it for sorting, but so far there
+are never slr's over 10 anyway …"
   (let ((att (dix-get-attrib attributes "slr")))
     (if att
 	(buffer-substring-no-properties (xmltok-attribute-value-start att)
@@ -1217,6 +1226,7 @@ so far there are never slr's over 10 anyway..."
       "0")))
 
 (defun dix-sort-e-by-r (reverse beg end)
+  "Sort <e> elements by the contents of <l>."
   (interactive "P\nr")
   (dix-sort-e-by-l reverse beg end 'by-r))
 
@@ -2173,8 +2183,8 @@ Can contain shell globs."
     ("e" "lm" "l" "r" "i")
     ("par" "n")
     ("pardef" "n"))
-  "Association list of elements and which attributes are considered interesting for grepping.
-Used by `dix-grep-all'.")
+  "Elements and which attributes are considered interesting for grepping.
+Association list used by `dix-grep-all'.")
 
 (defvar dix-grep-fns
   '(;; dix:
@@ -2184,8 +2194,8 @@ Used by `dix-grep-all'.")
     ("i" . dix-i-at-point)
     ("par" . dix-par-at-point)
     ("pardef" . dix-pardef-at-point))
-  "Association list of elements and which functions to find the greppable symbol at point.
-Used by `dix-grep-all'.")
+  "Elements and which functions to find the greppable symbol at point.
+Association list used by `dix-grep-all'.")
 
 
 (defun dix-nearest-greppable ()
@@ -2205,7 +2215,7 @@ Used by `dix-grep-all'.")
 (defun dix-grep-all (&optional include-this)
   "Show all usages of this pardef in related dictionaries.
 Related dictionaries are represented by the (customizable) string
-`dix-dixfiles'. Unless optional argument INCLUDE-THIS is given,
+`dix-dixfiles'.  Unless optional argument INCLUDE-THIS is given,
 the current file is excluded from the results."
   (interactive "P")
   (let* ((greppable (dix-nearest-greppable))
@@ -2227,7 +2237,7 @@ the current file is excluded from the results."
 (defun dix-existing-dixfiles (include-this &optional dir)
   "Get the set of existing files that match `dix-dixfiles' patterns.
 Excludes the file of the current buffer unless INCLUDE-THIS is
-non-nil. The set is uniq'd and turned relative according to
+non-nil.  The set is uniq'd and turned relative according to
 DIR (defaults to `default-directory')."
   (let ((default-directory (or dir default-directory)))
     (let* ((this (buffer-file-name (current-buffer)))
