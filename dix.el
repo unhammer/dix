@@ -1906,11 +1906,14 @@ to the regular `delete-backward-char'."
 	  (t (nxml-up-element)))))
 
 (defun dix-xmlise-using-above-elt ()
-  "Simple yasnippet-like function to turn a plain list
-into <e> entries. Write a bunch of words, one word per line,
-below a previous <e> entry, then call this function to apply that
-entry as a template on the word list. Example (with point
-somewhere in the word list):
+  "Turn colon-separated line into xml using above line as template.
+
+Simple yasnippet-like function to turn a plain list into <e>
+entries.  Write a bunch of words, one word per line, below a
+previous <e> entry, then call this function to apply that entry
+as a template on the word list.
+
+Example (with point somewhere in the word list):
 
 
 <e lm=\"baa\">      <i>ba</i><par n=\"ba/a__n\"/></e>
@@ -1937,8 +1940,7 @@ lahka:slags
 
 <e><p><l>ja<b/>nu<b/>ain<s n=\"Adv\"/></l><r>og<b/>så<b/>videre<s n=\"adv\"/></r></p></e>
 <e><p><l>kánske<s n=\"Adv\"/></l><r>kanskje<s n=\"adv\"/></r></p></e>
-<e><p><l>lahka<s n=\"Adv\"/></l><r>slags<s n=\"adv\"/></r></p></e>
-"
+<e><p><l>lahka<s n=\"Adv\"/></l><r>slags<s n=\"adv\"/></r></p></e>"
   ;; TODO: remove the ugly
   ;; TODO: support for turning :<: and :>: into restrictions
   (interactive)
@@ -2013,13 +2015,18 @@ lahka:slags
 		       ;; if there's no `:', use the whole line for both <l> and <r>,
 		       ;; if there's one `:', use that to split into <l> and <r>
 		       (let* ((lr (split-string line ":"))
-			      (lm (if (cdr lr) (cadr lr) (car lr)))
+                              (has-lm (string-match " lm=\"%s\"" template))
+                              ;; If it seems we're in monodix, strip the # from the <l>:
+                              (l-plain (if has-lm
+                                           (replace-regexp-in-string "#" "" (car lr))
+                                         (car lr)))
+                              (r-plain (if (cdr lr)
+                                           (cadr lr)
+                                         (car lr)))
 			      (l (replace-regexp-in-string lmsuffix ""
-							   (replace-regexp-in-string " " "<b/>" (car lr))))
+							   (dix-xmlise-l-r-to-xml l-plain)))
 			      (r (replace-regexp-in-string lmsuffix ""
-							   (replace-regexp-in-string " " "<b/>" (if (cdr lr)
-												    (cadr lr)
-												  (car lr))))))
+							   (dix-xmlise-l-r-to-xml r-plain))))
 			 (when (cl-caddr lr) (error "More than one : in line: %s" line))
 			 (format (if (equal l r)
 				     template
@@ -2027,8 +2034,8 @@ lahka:slags
 				   (replace-regexp-in-string "<i>%s</i>"
 							     "<p><l>%s</l><r>%s</r></p>"
 							     template))
-				 (if (string-match " lm=\"%s\"" template) lm l)
-				 (if (string-match " lm=\"%s\"" template) l r)
+				 (if has-lm (replace-regexp-in-string "#" "" r-plain) l)
+				 (if has-lm l r)
 				 r)))
 		     inlist)))
       ;; Delete the old inlist, and insert the new outlist:
@@ -2037,6 +2044,17 @@ lahka:slags
        (if (eq (length outlist) 1)
            (string-trim (car outlist))
          (apply #'concat outlist))))))
+
+(defun dix-xmlise-l-r-to-xml (s)
+  "Handle spaces and the # symbol in `dix-xmlise-using-above-elt'.
+The S is what turns into the left or right string."
+  (replace-regexp-in-string
+   " "
+   "<b/>"
+   (replace-regexp-in-string
+    "#\\(.*\\)"
+    "<g>\\1</g>"
+    s)))
 
 (defun dix-trim-string (s)
   "Trim leading and trailing spaces, tabs and newlines off S."
