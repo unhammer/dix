@@ -1841,7 +1841,7 @@ too much work for this."
     (cond ((and (or (eq xmltok-type 'data)
                     (and (memq xmltok-type '(start-tag empty-element))
                          (dix-point-after->)))
-                (in-elt '("g" "b" "r" "l" "i")))
+                (in-elt '("g" "b" "r" "l" "i" "ig")))
            "<b/>")
           ((and (catch 'in-attr
                   (dolist (attr xmltok-attributes)
