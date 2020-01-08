@@ -597,6 +597,8 @@ Assumes ATTRIBUTES is of the format of `xmltok-attributes'."
     ;; lrx:
     ("match" "lemma" "tags")
     ("select" "lemma" "tags")
+    ("seq" "n")
+    ("def-seq" "n")
     ;; cross-model:
     ("cross-action" "id" "a")
     ("v" "n")
