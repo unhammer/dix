@@ -6,7 +6,7 @@
 ;; Version: 0.4.1
 ;; Url: http://wiki.apertium.org/wiki/Emacs
 ;; Keywords: languages
-;; Package-Requires: ((cl-lib "0.5") (emacs "24.4"))
+;; Package-Requires: ((cl-lib "0.5") (emacs "26.2"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -43,6 +43,9 @@
 ;; other related Emacs extensions as well; see
 ;; http://wiki.apertium.org/wiki/Emacs#Quickstart for an init file
 ;; that installs and configures both dix.el and some related packages.
+
+;; Optional dependencies:
+;; * `strie' – for the `dix-guess-pardef' function
 
 ;; If you want keybindings that use `C-c' followed by letters, you
 ;; should also add
@@ -216,11 +219,7 @@ MESSAGE, BEG and END as in `rng-mark-error'."
     ("Guess pardef of the word on this line..."
      :help "Write a single word on a line, place point somewhere inside the word, and this will guess the pardef using the above entries."
      ["with no PoS restriction" dix-guess-pardef
-      :help "Write a single word on a line, place point somewhere inside the word, and this will guess the pardef using the above entries."]
-     ["looking only at __n-pardefs" dix-guess-pardef__n
-      :help "Write a single word on a line, place point somewhere inside the word, and this will guess the pardef using the above __n-entries."]
-     ["looking only at __vblex_adj-pardefs" dix-guess-pardef__vblex_adj
-      :help "Write a single word on a line, place point somewhere inside the word, and this will guess the pardef using the above __vblex_adj-entries."])
+      :help "Write a single word on a line, place point somewhere inside the word, and this will guess the pardef using the above entries."])
     "---"
     ["Sort pardef" dix-sort-pardef
      :help "Must be called from within a pardef"]
@@ -1653,26 +1652,116 @@ option to override the modes.xml reading)."
       (substring whole 0 (- (length whole) (length end)))
     (error (concat "The string \"" end "\" does not end \"" whole "\""))))
 
-(defun dix-consume-i (substr)
-  "Try to remove SUBSTR from this <i>-element."
-  (when (> (length substr) 0)
-    (let ((end (+ (point) (length substr))))
-      (if (string= (xmltok-start-tag-qname) "i")
-	  (if (string= substr (buffer-substring-no-properties (point) end))
-	      (delete-region (point) end)
-	    (error "dix-consume-i did not find substring"))
-	(error "bailing out, dix-consume-i can't handle elements other than <i>")))))
+(defvar dix--entry-tries nil
+  "Cached result of `dix--mk-partype-trie' 'entry per partype.")
+(make-variable-buffer-local 'dix--entry-tries)
 
-(defun dix-guess-pardef (&optional partype)
-  "How to use: Write a long word, e.g. a compound noun like
-\"øygruppe\", in the dix file below all the nouns, put point
-between \"øy\" and \"gruppe\", and if \"gruppe\" is defined
-somewhere above, this function will turn the word into:
+(defvar dix--pardef-tries nil
+  "Cached result of `dix--mk-partype-trie' 'pardef per partype.")
+(make-variable-buffer-local 'dix--pardef-tries)
+
+(defun dix--mk-partype-trie (partype entry-or-pardef)
+  "Make a trie for looking up paradigms/entries from reverse lemmas of PARTYPE.
+Only looks at words above point.  Values are paradims iff ENTRY-OR-PARDEF is 'pardef."
+  (let ((s (buffer-substring-no-properties (point-min) (point)))
+        (e-or-m-group (if (eq entry-or-pardef 'pardef)
+                          2
+                        0)))
+    (with-temp-buffer
+      (insert s)
+      (goto-char (point-min))
+      (keep-lines (concat partype "\""))
+      (let ((trie (strie-new))
+            (exp (format "<e .*lm=\"\\([^\"]+\\)\".*n=\"\\([^\"]+%s\\)\".*</e>" partype)))
+        (while (re-search-forward exp nil 'noerror)
+          (strie-add trie (reverse (match-string 1)) (match-string e-or-m-group)))
+        trie))))
+
+(defun dix--partrie-best-par (trie input)
+  "Get the most used pardef for suffix-matches on INPUT from pardef TRIE.
+TRIE is from `dix--mk-partype-trie' 'pardef."
+  ;; TODO: Not used; could be useful for ranking if we have many
+  ;; matches from dix--partrie-find-entry-template
+  (let ((cur trie)
+        (found nil)
+        (inp (reverse input))
+        (pardefs (make-hash-table :test #'equal)))
+    (while (and cur (> (length inp) 2))
+      (message "\ninp: %S cur: %s" inp 'cur)
+      (setq found cur cur (strie-get-child cur (substring inp 0 1)))
+      (setq inp (substring inp 1)))
+    (when found
+      (let ((prefixes (strie-complete found ""))
+            (best-score 0)
+            (best-par nil))
+        (mapc (lambda (pre)
+                (let ((par (strie-get found pre)))
+                  (puthash par (+ 1 (gethash par pardefs 0))
+                           pardefs)))
+              prefixes)
+        (maphash (lambda (par score)
+                   (when (> score best-score)
+                       (setq best-score score
+                             best-par par)))
+                 pardefs)
+        (cons (reverse inp) best-par)))))
+
+(defun dix--partrie-find-entry-template (trie input)
+  "Get a template entry for suffix-matches on INPUT from pardef TRIE.
+TRIE is from `dix--mk-partype-trie' 'entry."
+  (let* ((cur trie)
+         (found nil)
+         (inp (reverse input))
+         (lhs inp))
+    (while (and cur (> (length inp) 2))
+      (setq found cur
+            cur (strie-get-child cur (substring inp 0 1))
+            lhs inp
+            inp (substring inp 1)))
+    (when found
+      (let ((prefixes (dix--partrie-keep-usable
+                       found
+                       (strie-complete found ""))))
+        (when prefixes
+          (let* ((matched (substring input (length lhs)))
+                 (prefix (car prefixes)))
+            (list (reverse lhs)
+                  (strie-get found prefix)
+                  (reverse prefix)
+                  matched)))))))
+
+(defun dix--partrie-keep-usable (node prefixes)
+  "Keep only those PREFIXES reachable from NODE that match `dix--guess-is-usable'."
+  (cl-remove-if-not (lambda (prefix)
+                      (dix--guess-is-usable (strie-get node prefix) (reverse prefix)))
+                    prefixes))
+
+(defun dix--guess-is-usable  (e-template oldlhs)
+  "True iff we can strip OLDLHS out of E-TEMPLATE to use it for guessing."
+  (string-match-p (format "<e[^>]*>\\s *<i>%s"
+                          (replace-regexp-in-string " " "<b/>" oldlhs))
+                  e-template))
+
+(defun dix-guess-pardef (&optional refresh-partype-trie)
+  "Guess a dix entry for word at point based on above entries.
+
+Example usage:
+
+You want to add the noun \"øygruppe\" to your .dix.  Go to the
+last of the noun entries in the file, write the word on a line of
+its own, and run this function.  It'll look at all nouns, and
+find the one that shares the longest suffix, e.g. \"gruppe\", and
+use that as a template, creating an entry like:
 
 <e lm=\"øygruppe\">    <i>øygrupp</i><par n=\"lø/e__n\"/></e>
 
-Optional string argument `partype' lets you restrict the search
-to entries with pardef names ending in that string (e.g. \"__n\").
+On first run, it creates a cache of all entries of the
+immediately above part of speech (using paradigm suffixes to find
+the main PoS, e.g. \"__n\" in the example above).
+
+If REFRESH-PARTYPE-TRIE, the cache is updated, otherwise
+it's reused.  There's one cache per PoS, so when adding verbs
+you'll use the \"__vblex\" cache etc.
 
 You can also add mwe's like
 
@@ -1680,7 +1769,7 @@ setje# fast
 
 and get them turned into
 
-<e lm=\"setje fast\">      <i>set</i><par n=\"set/je__vblex\"/><p><l><b/>fast</l><r><g><b/>fast</g></r></p></e>
+<e lm=\"setje fast\"> <i>set</i><par n=\"set/je__vblex\"/><p><l><b/>fast</l><r><g><b/>fast</g></r></p></e>
 
 assuming there's a line like
 
@@ -1688,11 +1777,10 @@ assuming there's a line like
 
 somewhere above.
 
-TODO: ideally, instead of having to place the cursor at the
-compound border, it should try to get the longest possible match,
-the same as trying this function from first char, then from
-second, etc., but preferably using a more efficient method..."
-  (interactive)
+Assumes paradigms have names ending in \"__PoS\", and entries are
+single-line.  Will not work well unless morphology is based on suffixes."
+  (interactive "P")
+  (require 'strie)
   (let* ((queue-start (save-excursion (search-forward "#" (line-end-position) 'noerror)))
 	 (queue (when queue-start
 		  (replace-regexp-in-string
@@ -1702,16 +1790,26 @@ second, etc., but preferably using a more efficient method..."
 	 (rhs-end (if queue-start
 		      (1- queue-start)
 		    (line-end-position)))
-	 (rhs (buffer-substring-no-properties (point) rhs-end))
-	 (pos (save-excursion
-		(re-search-backward
-		 (concat "<e.* lm=\"[^\"]*" rhs "\".*" partype "\"") nil 'noerror 1))))
-    (if pos
-	(let ((e (buffer-substring-no-properties pos (nxml-scan-element-forward pos)))
-	      (word (buffer-substring-no-properties (line-beginning-position)
-						    rhs-end)))
-	  (delete-region (line-beginning-position) (line-end-position))
-	  (insert e)
+         (partype (save-excursion
+                    (and (re-search-backward "<par n=\"[^\"]*\\(__[^\"]*\\)") ; do-error
+                         (match-string-no-properties 1))))
+         (lm2entrie (or (and (not refresh-partype-trie)
+                             (cdr (assoc partype dix--entry-tries  #'equal)))
+                        (let ((tr (dix--mk-partype-trie partype 'entry)))
+                          (setq dix--entry-tries
+                                (cons (cons partype tr)
+                                      (assoc-delete-all partype dix--entry-tries #'equal)))
+                          tr)))
+         (lemh (buffer-substring-no-properties (line-beginning-position) rhs-end))
+	 (match (dix--partrie-find-entry-template lm2entrie lemh)))
+    (if match
+	(let* ((lhs (cl-first match))
+               (rhs (substring lemh (length lhs)))
+               (e (cl-second match))
+               (oldlhs (cl-third match))
+               (oldlm (concat oldlhs (cl-fourth match))))
+          (delete-region (line-beginning-position) (line-end-position))
+          (insert e)
 	  (when queue
 	    (save-excursion
 	      (nxml-backward-down-element)
@@ -1723,40 +1821,25 @@ second, etc., but preferably using a more efficient method..."
 	  (nxml-backward-single-balanced-item)
 	  (dix-next)
 	  (let* ((lmbound (progn (nxml-token-after)
-				 (nxml-attribute-value-boundary (point))))
-		 (oldlm (buffer-substring-no-properties (car lmbound) (cdr lmbound)))
-		 ;; (oldroot.suffix (dix-split-root-suffix))
-		 ;; (oldroot (car oldroot.suffix))
-		 ;; (suffix (cdr oldroot.suffix))
-		 ;; (nroot (if suffix
-		 ;; 	   (if (string= (substring word (- (length suffix))) suffix)
-		 ;; 	       (substring word 0 (- (length suffix)))
-		 ;; 	     (error "Pardef suffix didn't match!"))
-		 ;; 	 word))
-		 (oldlhs (dix-rstrip oldlm rhs))
-		 (lhs (dix-rstrip word rhs)))
+				 (nxml-attribute-value-boundary (point)))))
 	    (delete-region (car lmbound) (cdr lmbound))
-	    (insert (concat word queue))
-	    (dix-next)
-	    (dix-consume-i oldlhs)
-	    (unless (string= (xmltok-start-tag-qname) "i")
-	      (nxml-backward-up-element)
-	      (insert "<i></i>")
-	      (backward-char 4))
-	    (insert (replace-regexp-in-string " " "<b/>" lhs))
-	    (beginning-of-line) (insert (concat "<!-- " oldlm " -->")) (end-of-line)))
+	    (insert (concat lemh queue))
+	    (dix-next) ; go into following <i>, delete prefix of template if possible:
+            (let ((end (+ (point) (length oldlhs))))
+              (if (or (eq (point) end)
+                      (and (string= (xmltok-start-tag-qname) "i")
+	                   (string= oldlhs (buffer-substring-no-properties (point) end))
+	                   (or (delete-region (point) end)
+                               t)))
+                  (progn
+	            (unless (string= (xmltok-start-tag-qname) "i")
+	              (nxml-backward-up-element)
+	              (insert "<i></i>")
+	              (backward-char 4))
+	            (insert (replace-regexp-in-string " " "<b/>" lhs))
+	            (beginning-of-line) (insert (concat "<!-- " oldlm " -->")) (end-of-line))
+                (message "No fitting entry template found :-/")))))
       (message "No fitting word found :-/"))))
-
-(defun dix-guess-pardef__n ()
-  "Like `dix-guess-pardef', but restricted to pardefs with names
-ending in __n"
-  (interactive)
-  (dix-guess-pardef "__n"))
-(defun dix-guess-pardef__vblex_adj ()
-  "Like `dix-guess-pardef', but restricted to pardefs with names
-ending in __vblex_adj"
-  (interactive)
-  (dix-guess-pardef "__vblex_adj"))
 
 (defun dix-add-par ()
   "Just add a <par>-element, guessing a name from nearest above par."
