@@ -2422,6 +2422,9 @@ if REVERSE, treat the word as target instead."
         (widen)
         (goto-char (point-max))
         (nxml-backward-down-element 1)
+        (when (equal "/lrx" (xmltok-start-tag-qname))
+          ;; we want to be within /rules
+          (nxml-backward-down-element 1))
         (insert (format
                  "  <rule><match lemma=\"%s\" tags=\"%s\"><select lemma=\"%s\"/></match></rule>\n"
                  w
