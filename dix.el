@@ -896,6 +896,15 @@ Returns the list of pardef names."
 (put 'dix-vr-langs 'safe-local-variable 'listp)
 (put 'dix-vl-langs 'safe-local-variable 'listp)
 
+(defun dix-get-vr-vl ()
+  "A cons of attribute key (vr/vl) and value (nno, nob, …); or nil if none such.
+Assumes we don't have both vr and vl at the same time.
+Assumes we've just done (dix-up-to \"e\" \"pardef\")"
+  (save-excursion
+    (when (re-search-forward " v\\([rl]\\)=\"\\([^\"]+\\)\"" (nxml-token-after) 'noerror 1)
+      (cons (match-string 1)
+            (match-string 2)))))
+
 (defun dix-v-cycle ()
   "Cycle through possible values of the `vr' or `vl' attributes.
 
@@ -916,10 +925,7 @@ End:
     (let* ((def-dir (if dix-vr-langs "r" "l"))
            (langs (list (cons "r" dix-vr-langs)
                         (cons "l" dix-vr-langs)))
-           (old		     ; find what, if any, restriction we have:
-	    (save-excursion
-	      (if (re-search-forward " v\\([rl]\\)=\"\\([^\"]+\\)\"" (nxml-token-after) 'noerror 1)
-		  (cons (match-string 1) (match-string 2)))))
+           (old	(dix-get-vr-vl)) ; find what, if any, restriction we have already
            (dir (if old (car old) def-dir))
            (old-lang (when old (cdr old)))
            (dir-langs (cdr (assoc dir langs)))
@@ -2399,7 +2405,9 @@ On no match, insert a default rule for this pair.
 Assumes we want the file where word would be the source language;
 if REVERSE, treat the word as target instead."
   (interactive "P")
-  (let* ((tr (dix-l/r-at-point-reg))
+  (let* ((vr/vl (save-excursion (dix-up-to "e" "pardef")
+                                (dix-get-vr-vl)))
+         (tr (dix-l/r-at-point-reg))
          (tag (car tr))
          (lm-l (dix-l-word-at-point))
          (lm-r (dix-r-word-at-point))
@@ -2407,7 +2415,15 @@ if REVERSE, treat the word as target instead."
          (w-reverse (if (eq 'l tag) lm-r lm-l))
          (reverse (if (eq 'l tag) reverse (not reverse)))
          (s-tag (dix--guess-bidix-mainpos-of-e))
-         (files (dix-files-other-ext "lrx" reverse))
+         (files0 (dix-files-other-ext "lrx" reverse))
+         (files (or (and vr/vl       ; maybe filter file list by vr/vl
+                         (eq tag (intern (car vr/vl)))
+                         (seq-filter (lambda (file)
+                                       (string-match-p (format ".*[.]%s-[^.]+[.]lrx"
+                                                               (cdr vr/vl))
+                                                       file))
+                                     files0))
+                    files0))
          (file (if (cdr files)
                    (dix--completing-read "File: " files nil t
                                          (if (cdr files) nil (car files)))
