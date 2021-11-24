@@ -1070,13 +1070,21 @@ the beginning of the lm and <i>."
     (cons (dix-token-start) (nxml-scan-element-forward (point)))))
 
 (defun dix-first-cdata-of-elt (pos)
-  "Return first available CDATA of elt after POS as string."
+  "Return first available CDATA of elt after POS as string.
+Note: Skips <b/>'s and turns them into spaces."
   (save-excursion
     (goto-char pos)
     (nxml-down-element 1)
     (let ((beg (point)))
       (dix-with-sexp (forward-sexp))
-      (buffer-substring beg (point)))))
+      ;; There may be more, with <b/>'s:
+      (while (and (nxml-token-after)
+                  (equal "b" (xmltok-start-tag-qname)))
+        (nxml-forward-element)
+        (dix-with-sexp (forward-sexp)))
+      (replace-regexp-in-string "<b[^>]*>"
+                                " "
+                                (buffer-substring beg (point))))))
 
 (defun dix-l-word-at-point ()
   "Return first available CDATA of <l> of <e> at point as string."
