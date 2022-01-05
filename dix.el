@@ -1022,7 +1022,8 @@ A prefix argument makes it an RL restriction."
       ;; turn <i> into <p><l><r>:
       (nxml-forward-element 1)
       (nxml-down-element 1)
-      (goto-char (nxml-token-after))
+      (unless (looking-at-p "<i>")
+        (goto-char (nxml-token-after)))
       (let ((i (buffer-substring-no-properties
                 (point)
                 (dix--xml-end-point))))
