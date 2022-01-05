@@ -989,6 +989,18 @@ Optional argument DIR is a string, either \"\", \"LR\" or
               (indent-to dix-pp-align-column))
              ((looking-at "<p\\|<re") (indent-to dix-pb-align-column))))))
 
+(defun dix--swap-outer-tag (elt newtag)
+  "Change the outer tag of ELT to NEWTAG."
+  (replace-regexp-in-string
+   "^<[^ >]*" (concat "<" newtag)
+   (replace-regexp-in-string
+    "</[^>]*>$" (concat "</" newtag ">")
+    elt)))
+
+(defun dix--xml-end-point ()
+  "End position of xml-element starting here."
+  (save-excursion (nxml-forward-element 1) (point)))
+
 (defun dix-LR-restriction-copy (&optional RL)
   "Make an LR-restricted copy of the dix element we're looking at.
 A prefix argument makes it an RL restriction."
@@ -997,10 +1009,29 @@ A prefix argument makes it an RL restriction."
     (dix-copy)
     (let ((dir (if RL "RL" "LR")))
       (dix-restriction-cycle dir)))
-  ;; move point to end of relevant word:
   (dix-up-to "e" "pardef")
-  (nxml-down-element 2) (when RL (nxml-forward-element))
-  (nxml-down-element 1) (goto-char (nxml-token-after)))
+  (if (dix-is-bidix)
+      (progn
+        ;; move point to end of relevant word:
+        (nxml-down-element 2)
+        (when RL (nxml-forward-element))
+        (nxml-down-element 1)
+        (goto-char (nxml-token-after)))
+    (when (save-excursion
+            (re-search-forward "<i>" (dix--xml-end-point) 'noerror))
+      ;; turn <i> into <p><l><r>:
+      (nxml-forward-element 1)
+      (nxml-down-element 1)
+      (goto-char (nxml-token-after))
+      (let ((i (buffer-substring-no-properties
+                (point)
+                (dix--xml-end-point))))
+        (insert "<p>"
+                (dix--swap-outer-tag i "l")
+                (dix--swap-outer-tag i "r")
+                "</p>")
+        (delete-region (point) (dix--xml-end-point))
+        (nxml-backward-element 1)))))
 
 (defun dix-RL-restriction-copy ()
   "Make an RL-restricted copy of the dix element we're looking at."
