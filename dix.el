@@ -27,11 +27,7 @@
 
 ;; Basic usage:
 ;;
-;; (add-hook 'nxml-mode-hook
-;; 	  (lambda () (and buffer-file-name
-;; 			  (string-match "^modes\\.xml$\\|\\.\\(dix\\|metadix\\|t[0-9s]x\\|lrx\\)$"
-;;                                      buffer-file-name)
-;; 			  (dix-mode 1))))
+;; (add-hook 'nxml-mode-hook #'dix-on-nxml-mode)
 ;;
 ;; Unless you installed from MELPA, you'll also need
 ;;
@@ -193,6 +189,18 @@ Entering dix-mode calls the hook dix-mode-hook.
                            nil)))))
   (set-syntax-table dix-mode-syntax-table)
   (dix-imenu-setup))
+
+(defvar dix-file-name-patterns
+  "\\.\\(meta\\|multi\\)?dix$\\|\\.t[0-9s]x$\\|\\.l[sr]x$\\|\\.metalrx$\\|/modes\\.xml$\\|/cross-model\\.xml$")
+
+(defun dix-on-nxml-mode ()
+  "Turn on dix-mode if suitable dix file extension.
+Usage: (add-hook 'nxml-mode-hook #'dix-on-nxml-mode)."
+  (when (and (buffer-file-name)
+             (string-match dix-file-name-patterns buffer-file-name))
+    (modify-syntax-entry ?> ")<" nxml-mode-syntax-table)
+    (modify-syntax-entry ?< "(>" nxml-mode-syntax-table)
+    (dix-mode 1)))
 
 (defun dix-mark-error (message beg end)
   "Create an error overlay with the dix-error category.
