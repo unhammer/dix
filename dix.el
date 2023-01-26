@@ -1,6 +1,6 @@
 ;;; dix.el --- Apertium XML editing minor mode -*- lexical-binding: t -*-
 
-;; Copyright (C) 2009-2018 Kevin Brubeck Unhammer
+;; Copyright (C) 2009-2023 Kevin Brubeck Unhammer
 
 ;; Author: Kevin Brubeck Unhammer <unhammer@fsfe.org>
 ;; Version: 0.4.1
@@ -1218,55 +1218,75 @@ Useful after e.g. `nxml-down-element' if there's whitespace."
       (point)
     (nxml-token-after)))
 
-(defun dix-sort-e-by-l (reverse beg end &optional by-r)
+(defun dix-sort-e-by-l (from-end reverse beg end &optional by-r)
   "Sort region alphabetically by contents of <l> element.
 
-Interactive argument means descending order.  Assumes <e>
-elements never occupy more than one line.
+Interactive argument means sort from the reversed
+contents (similarly to the shell command `rev|sort|rev')..
+Assumes <e> elements never occupy more than one line.
 
-Called from a program, there are three arguments:
-REVERSE (non-nil means reverse order), BEG and END (region to
-sort).  The variable `sort-fold-case' determines whether
-alphabetic case affects the sort order.
+Called from a program, there are for arguments:  FROM-END non-nil
+means sort by reversed contents, REVERSE non-nil means descending
+order of lines, BEG and END are the region to sort.  The variable
+`sort-fold-case' determines whether alphabetic case affects the
+sort order.
 
 Sorts by <r> element if optional argument BY-R is true.
 
 Note: will not work if you have several <e>'s per line!"
-  (interactive "P\nr")
-  (save-excursion
-    (save-restriction
-      (narrow-to-region beg end)
-      (goto-char (point-min))
-      (let ;; make `end-of-line' and etc. to ignore fields:
-	  ((inhibit-field-text-motion t))
-	(sort-subr
-	 reverse
-	 (lambda ()	                ; nextrec
-	   (goto-char (nxml-token-after))
-	   (re-search-backward "\\s *" (line-beginning-position) 'noerror))
-	 (lambda ()			; endrec
-	   (dix-up-to "e")
-	   (nxml-forward-element)
-	   (re-search-forward "\\s *" (line-end-position) 'noerror)
-	   (let ((next-tok (nxml-token-after))) ; skip comments before eol:
-	     (while (and (eq xmltok-type 'comment)
-			 (<= next-tok (line-end-position)))
-	       (goto-char next-tok)
-	       (re-search-forward "\\s *" (line-end-position) 'noerror)
-	       (setq next-tok (nxml-token-after)))))
-	 (lambda ()			; startkey
-	   (nxml-down-element 1)
-	   (let ((slr (dix-get-slr xmltok-attributes)))
-	     (nxml-down-element 1)
-	     (let* ((lstart (point))
-		    (lend (progn (nxml-forward-element) (point)))
-		    (rstart (dix-token-start))
-		    (rend (progn (nxml-forward-element) (point)))
-		    (l (dix-asciify (buffer-substring-no-properties lstart lend)))
-		    (r (dix-asciify (buffer-substring-no-properties rstart rend))))
-	       (if by-r
-		   (concat r l)
-		 (concat l slr r))))))))))
+  (interactive "P\ni\nr")
+  (let ((endrec (lambda ()
+	          (dix-up-to "e")
+	          (nxml-forward-element)
+	          (re-search-forward "\\s *" (line-end-position) 'noerror)
+	          (let ((next-tok (nxml-token-after))) ; skip comments before eol:
+	            (while (and (eq xmltok-type 'comment)
+			        (<= next-tok (line-end-position)))
+	              (goto-char next-tok)
+	              (re-search-forward "\\s *" (line-end-position) 'noerror)
+	              (setq next-tok (nxml-token-after))))))
+        (startkey (lambda ()
+	  (nxml-down-element 1)
+	  (let ((slr (dix-get-slr xmltok-attributes)))
+	    (nxml-down-element 1)
+	    (let* ((lstart (point))
+		   (lend (progn (nxml-forward-element) (point)))
+		   (rstart (dix-token-start))
+		   (rend (progn (nxml-forward-element) (point)))
+		   (l (dix-asciify (buffer-substring-no-properties lstart lend)))
+		   (r (dix-asciify (buffer-substring-no-properties rstart rend))))
+	      (if by-r
+		  (list r l)
+		(list l slr r))))))
+        (nextrec (lambda ()
+	           (goto-char (nxml-token-after))
+	           (re-search-backward "\\s *" (line-beginning-position) 'noerror)))
+        (endkey nil)
+        (predicate (if from-end
+                       (lambda (a b)
+                         (string< (mapconcat #'reverse a)
+                                  (mapconcat #'reverse b)))
+                     (lambda (a b)
+                       (string< (concat a) (concat b))))))
+    (save-excursion
+      (save-restriction
+        (narrow-to-region beg end)
+        (goto-char (point-min))
+        (let ;; make `end-of-line' and etc. to ignore fields:
+	    ((inhibit-field-text-motion t))
+	  (sort-subr reverse
+	             nextrec
+	             endrec
+	             startkey
+                     endkey
+                     predicate))))))
+
+(defun dix-sort-e-by-r (from-end reverse beg end)
+  "Sort <e> elements by the contents of <l>.
+See `dix-sort-e-by-l' for meaning of arguments FROM-END, REVERSE,
+BEG and END."
+  (interactive "P\ni\nr")
+  (dix-sort-e-by-l from-end reverse beg end 'by-r))
 
 (defun dix-get-slr (attributes)
   "Give the string value of the slr attribute if it's set, else \"0\".
@@ -1279,11 +1299,6 @@ are never slr's over 10 anyway …"
 	(buffer-substring-no-properties (xmltok-attribute-value-start att)
 					(xmltok-attribute-value-end att))
       "0")))
-
-(defun dix-sort-e-by-r (reverse beg end)
-  "Sort <e> elements by the contents of <l>."
-  (interactive "P\nr")
-  (dix-sort-e-by-l reverse beg end 'by-r))
 
 (defun dix-sort-pardef (reverse)
   "Sort a pardef using `dix-sort-e-by-r'.
