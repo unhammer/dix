@@ -1519,7 +1519,7 @@ Moves STEP steps (default 1).  See also `dix-next'."
 (declare-function imenu--make-index-alist "imenu" (&optional noerror))
 (autoload #'imenu--make-index-alist "imenu")
 
-(defun dix-find-definition ()
+(defun dix-find-definition ()           ; TODO: convert to xref!
   "Go to definition of thing at point."
   (interactive)
   (cond ((dix-is-transfer)
@@ -1643,9 +1643,24 @@ file."
                      (funcall full-t?x nn))))
          (t1+x (and tNx
                     (funcall full-t?x (funcall get-next tNx))))
+         ;; TODO: alternatively `git ls-files|grep .dix`:
+         (dix (when (string-match "\\.\\(proper-\\)?\\([a-z]+\\)\\.dix$" file)
+                (let* ((is-proper (match-string 1 file))
+                       (lang (match-string 2 file))
+                       (path-next (concat (replace-regexp-in-string
+                                           "\\.[^.]+$" ""
+                                           (file-name-sans-extension file))
+                                          (if is-proper
+                                              "."
+                                            ".proper-")
+                                          lang ".dix")))
+                  (and (file-exists-p path-next)
+                       (not (equal file path-next))
+                       path-next))))
          (next-file (cl-find-if-not #'not               ; find first non-nil
                                     (list t1+x
-                                          t1x))))
+                                          t1x
+                                          dix))))
     (if next-file
         (find-file next-file)
       (message "dix.el couldn't guess as to what's the logical next file"))))
