@@ -2,7 +2,7 @@
 
 (package-initialize)
 
-;; cg.el and use-package live on the melpa package archive
+;; cg, hfst, dix live on the melpa package archive, so we need to add that:
 (add-to-list 'package-archives
              '("melpa" . "https://melpa.org/packages/"))
 
@@ -16,20 +16,13 @@
 
 (setq inhibit-startup-screen t)
 
+;; Allow fairly big files before warning
+(setq large-file-warning-threshold 27000000) ; e.g. nob.dix is this big
+
+
 (use-package cg
   :ensure t)
 
-(setq tab-always-indent 'complete)
-
-;; Nicer-looking completion menu:
-(use-package corfu
-  :ensure t
-  :config (corfu-global-mode))
-
-;; Optional – quite a lot of dependencies, but nice to see git-changed lines:
-(use-package git-gutter-fringe+
-  :ensure t
-  :config (global-git-gutter+-mode))
 
 ;; Optional dependency of dix-mode for faster completion:
 (use-package strie
@@ -39,14 +32,13 @@
   :ensure t
   :commands dix-mode
   :functions (dix-C-c-letter-keybindings)
-  :mode (("\\.dix\\'" . nxml-mode)
+  :mode (("\\.dix\\'" . nxml-mode)	  ; use dix-mode for these file types
          ("\\.t[0-9s]x\\'" . nxml-mode)
          ("\\.lrx\\'" . nxml-mode)
          ("\\.metalrx\\'" . nxml-mode)
          ("\\.metadix\\'" . nxml-mode)
          ("\\.multidix\\'" . nxml-mode))
-  :hook ((nxml-mode . dix-on-nxml-mode)
-         (dix-mode . dix-C-c-letter-keybindings))
+  :hook ((dix-mode . dix-C-c-letter-keybindings)) ; enable optional keybindings
   :config
   (setq dix-hungry-backspace t)
   (setq nxml-slash-auto-complete-flag t)
@@ -56,7 +48,7 @@
 (use-package hfst-mode
   :ensure t
   :commands hfst-mode
-  :mode (("\\.twol\\'" . hfst-mode)
+  :mode (("\\.twol\\'" . hfst-mode)	; use hfst-mode for these file types
          ("\\.twolc\\'" . hfst-mode)
          ("\\.xfst\\'" . hfst-mode)
          ("\\.lexc\\'" . hfst-mode)
@@ -65,20 +57,40 @@
          ("\\-morph.txt\\'" . hfst-mode)
          ("\\.pmscript\\'" . hfst-mode)))
 
+
+;; Some handy global keybindings:
 (global-set-key (kbd "C--") #'text-scale-adjust)
 (global-set-key (kbd "C-+") #'text-scale-adjust)
+(global-set-key (kbd "C-x g") #'goto-line)
 
-(add-to-list 'safe-local-variable-values
-	     '(cg-pre-pipe . "apertium -d . nob-seg | cg-conv a"))
 
-;; Nicer-looking M-x menu:
+;; Optional: nicer-looking M-x menu:
 (fido-vertical-mode 1)
 
+;; Optional: nicer tab-completion
+(setf completion-styles '(basic flex)
+      completion-auto-select t ;; Show completion on first call
+      completion-auto-help 'visible ;; Display *Completions* upon first request
+      completions-format 'one-column ;; Use only one column
+      completions-sort 'historical ;; Order based on minibuffer history
+      completions-max-height 20 ;; Limit completions to 15 (completions start at line 5)
+      completion-ignore-case t)
+
+(setq tab-always-indent 'complete)
+
+(when (fboundp 'global-completion-preview-mode)
+  (global-completion-preview-mode))
+
+;; Save place and recent files:
 (save-place-mode 1)
+(use-package recentf	       ; M-x recentf-open to show recent files
+  :config (recentf-mode))
 
-(global-linum-mode 1)
+(global-display-line-numbers-mode 1)
 
-(unless (server-running-p)
-  (server-start))
+(use-package server
+  :config
+  (unless (server-running-p)
+    (server-start)))
 
 ;; TODO: perhaps https://github.com/joaotavora/mac-key-mode/blob/master/mac-key-mode.el
